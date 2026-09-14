@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+venv/
+.venv/
+docker/.env.dev
+docker/.env.prod
+frontend/coverage/

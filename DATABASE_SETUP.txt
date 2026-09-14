@@ -1,0 +1,142 @@
+ROSA'S CANDY - CRIACAO E ACESSO AO POSTGRESQL
+================================================
+
+Este arquivo mostra a configuracao para um PostgreSQL ja instalado no servidor.
+Nao coloque senhas reais neste arquivo nem em arquivos versionados.
+
+1. ENTRAR NO POSTGRESQL COMO ADMINISTRADOR
+-------------------------------------------
+
+Linux (instalacao comum):
+  sudo -u postgres psql
+
+Docker local deste projeto:
+  docker compose --env-file docker/.env.dev --profile local-db exec database psql -U rosas_candy_dev -d rosas_candy_dev
+
+
+2. CRIAR BANCO E USUARIO DE DESENVOLVIMENTO
+--------------------------------------------
+
+Execute no psql:
+
+  CREATE ROLE rosas_candy_dev LOGIN;
+  \password rosas_candy_dev
+  CREATE DATABASE rosas_candy_dev
+    OWNER rosas_candy_dev
+    ENCODING 'UTF8'
+    TEMPLATE template0;
+  REVOKE ALL ON DATABASE rosas_candy_dev FROM PUBLIC;
+  GRANT CONNECT, TEMPORARY ON DATABASE rosas_candy_dev TO rosas_candy_dev;
+  \connect rosas_candy_dev
+  REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+  GRANT USAGE, CREATE ON SCHEMA public TO rosas_candy_dev;
+
+Quando o comando \password perguntar, use uma senha exclusiva do ambiente dev.
+
+
+3. CRIAR BANCO E USUARIO DE PRODUCAO
+-------------------------------------
+
+Execute no psql:
+
+  CREATE ROLE rosas_candy_prod LOGIN;
+  \password rosas_candy_prod
+  CREATE DATABASE rosas_candy_prod
+    OWNER rosas_candy_prod
+    ENCODING 'UTF8'
+    TEMPLATE template0;
+  REVOKE ALL ON DATABASE rosas_candy_prod FROM PUBLIC;
+  GRANT CONNECT ON DATABASE rosas_candy_prod TO rosas_candy_prod;
+  \connect rosas_candy_prod
+  REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+  GRANT USAGE, CREATE ON SCHEMA public TO rosas_candy_prod;
+
+Use uma senha longa, aleatoria e diferente da senha de desenvolvimento.
+
+
+4. VARIAVEIS QUE O DJANGO UTILIZA
+----------------------------------
+
+Desenvolvimento, em backend/.env ou docker/.env.dev:
+
+  DB_ENGINE=postgresql
+  POSTGRES_HOST=localhost
+  POSTGRES_PORT=5432
+  POSTGRES_DB=rosas_candy_dev
+  POSTGRES_USER=rosas_candy_dev
+  POSTGRES_PASSWORD=SENHA_DEV
+  POSTGRES_SSLMODE=prefer
+
+Producao, em docker/.env.prod ou no gerenciador de segredos do servidor:
+
+  DB_ENGINE=postgresql
+  POSTGRES_HOST=db.interno.exemplo
+  POSTGRES_PORT=5432
+  POSTGRES_DB=rosas_candy_prod
+  POSTGRES_USER=rosas_candy_prod
+  POSTGRES_PASSWORD=SENHA_PROD
+  POSTGRES_SSLMODE=require
+
+Modelos completos estao em:
+  backend/.env.example
+  docker/env.dev.example
+  docker/env.prod.example
+
+
+5. LIBERAR ACESSO REMOTO COM SEGURANCA
+---------------------------------------
+
+Se o banco estiver em outro servidor:
+
+  - Em postgresql.conf, limite listen_addresses ao IP privado necessario.
+  - Em pg_hba.conf, autorize somente o IP privado do servidor Django e use scram-sha-256.
+  - No firewall, libere a porta 5432 somente entre esses dois servidores.
+  - Use POSTGRES_SSLMODE=require e TLS no PostgreSQL em producao.
+  - Nunca exponha a porta 5432 para 0.0.0.0/0.
+
+Exemplo de pg_hba.conf (troque o IP):
+  hostssl  rosas_candy_prod  rosas_candy_prod  10.0.0.25/32  scram-sha-256
+
+
+6. MIGRACOES E TESTE DE CONEXAO
+--------------------------------
+
+Sem Docker:
+  python backend/manage.py migrate
+  python backend/manage.py check --deploy
+
+Com Docker e banco local:
+  Copy-Item docker/env.dev.example docker/.env.dev
+  docker compose --env-file docker/.env.dev --profile local-db up -d --build
+
+Com Docker e PostgreSQL externo de producao:
+  Copy-Item docker/env.prod.example docker/.env.prod
+  # Preencha docker/.env.prod antes do proximo comando.
+  docker compose --env-file docker/.env.prod up -d --build backend frontend
+
+O container do backend executa as migrations automaticamente antes do Gunicorn.
+
+
+7. ENDERECOS NO DOCKER
+-----------------------
+
+Frontend publico:
+  http://IP_DO_SERVIDOR:8080
+
+API para diagnostico somente no proprio servidor:
+  http://127.0.0.1:8000/api/health
+
+No navegador, o React chama /api na mesma URL do frontend. O Nginx encaminha essa
+rota pela rede interna ao Django; por isso o backend nao precisa ficar publico.
+
+
+8. BACKUP BASICO
+-----------------
+
+Backup:
+  pg_dump -h HOST -U rosas_candy_prod -Fc rosas_candy_prod -f rosas_candy_prod.dump
+
+Restauracao em um banco vazio:
+  pg_restore -h HOST -U rosas_candy_prod -d rosas_candy_prod --clean --if-exists rosas_candy_prod.dump
+
+Teste restauracoes periodicamente. Um backup que nunca foi restaurado nao esta validado.

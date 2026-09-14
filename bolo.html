@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficha de Custos — Bolo de Pote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #FFFBF3;
+    --bg: #F7EDE4;
+    --bg-lines: #ECDFD1;
+    --ink: #2E1B12;
+    --ink-soft: #6B5645;
+    --berry: #8C2F39;
+    --berry-dark: #6E1F28;
+    --caramel: #B87333;
+    --mint: #5B8C5A;
+    --mint-bg: #E7F0E4;
+    --brick: #B23A34;
+    --brick-bg: #F7E4E2;
+    --amber: #C08A2E;
+    --amber-bg: #FBF0DA;
+    --line: #E3D4C2;
+    --shadow: 0 2px 0 rgba(46,27,18,0.06), 0 12px 24px -14px rgba(46,27,18,0.25);
+    --radius: 14px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; padding:0;
+    background: repeating-linear-gradient(180deg, transparent, transparent 27px, var(--bg-lines) 28px), var(--bg);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 1180px; margin: 0 auto; padding: 32px 20px 80px; }
+
+  header{ display:flex; align-items:center; gap:18px; margin-bottom: 28px; }
+  header h1{
+    font-family:'Fraunces', serif; font-weight:700;
+    font-size: clamp(26px, 4vw, 38px); margin:0; line-height:1.05; color: var(--berry-dark);
+  }
+  header p{ margin: 4px 0 0; color: var(--ink-soft); font-size: 14.5px; }
+
+  .step-flow{
+    display:flex; align-items:center; gap:10px; margin-bottom:22px; flex-wrap:wrap;
+  }
+  .step-flow .chip{
+    background: var(--paper); border:1.5px solid var(--line); border-radius:999px;
+    padding:6px 14px; font-size:12.5px; font-weight:600; color: var(--ink-soft);
+    display:flex; align-items:center; gap:6px;
+  }
+  .step-flow .chip b{ color: var(--berry-dark); font-family:'Fraunces',serif; }
+  .step-flow .arrow{ color: var(--caramel); font-size:16px; }
+
+  .section{ margin-bottom: 30px; }
+  .card{
+    background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow);
+    position: relative; padding: 26px 24px 22px; border: 1px solid var(--line);
+  }
+  .tab{
+    position:absolute; top:-14px; left:26px; background: var(--berry); color:#fff;
+    font-family:'Fraunces', serif; font-weight:600; font-size:13px; letter-spacing:0.03em;
+    padding:6px 16px 7px; border-radius:8px 8px 3px 3px; box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  }
+  .tab.caramel{ background: var(--caramel); }
+  .tab.mint{ background: var(--mint); }
+  .card h2{ font-family:'Fraunces', serif; font-size:19px; font-weight:600; margin:6px 0 6px; }
+  .card > .subtitle{ font-size:12.5px; color: var(--ink-soft); margin: 0 0 18px; line-height:1.5; }
+
+  /* ---- inner sub-cards (massa / sabor) ---- */
+  .sub-card{
+    background: #FFFDF8; border:1.5px solid var(--line); border-radius:12px;
+    padding: 16px 16px 14px; margin-bottom: 16px;
+  }
+  .sub-card-head{ display:flex; align-items:flex-end; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .sub-card-head .field{ flex:1; min-width:140px; }
+  .sub-card-head .field.small{ flex: 0 0 110px; min-width:100px; }
+  .sub-del{
+    background:none; border:1.5px solid var(--brick); color:var(--brick); border-radius:8px;
+    width:34px; height:34px; font-size:17px; cursor:pointer; flex-shrink:0;
+  }
+  .sub-del:hover{ background: var(--brick-bg); }
+
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:11.5px; font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; }
+  input[type="text"], input[type="number"], select{
+    font-family:'Inter', sans-serif; font-size:14px; padding:8px 10px; border-radius:8px;
+    border:1.5px solid var(--line); background:#fff; color: var(--ink); width:100%;
+  }
+  input:focus, select:focus{ outline:none; border-color: var(--berry); }
+  input[type="number"]{ font-family:'JetBrains Mono', monospace; }
+
+  .fee-grid{ display:grid; grid-template-columns: repeat(3,1fr); gap:10px; margin: 10px 0 14px; }
+  @media (max-width:560px){ .fee-grid{ grid-template-columns: 1fr 1fr; } }
+
+  .ing-head-mini, .ing-row-mini{
+    display:grid; grid-template-columns: 1.3fr 0.8fr 0.8fr 0.55fr 0.8fr 0.75fr 26px;
+    gap:6px; align-items:center;
+  }
+  .ing-head-mini{
+    font-size:9.5px; text-transform:uppercase; letter-spacing:0.03em; color: var(--ink-soft);
+    font-weight:700; padding: 8px 2px 4px; border-bottom:1.5px dashed var(--line);
+  }
+  .ing-row-mini{ padding:5px 2px; border-bottom:1px dashed var(--line); }
+  .ing-row-mini input{ padding:5px 7px; font-size:12.5px; }
+  .ing-cost-mini{ font-family:'JetBrains Mono', monospace; font-size:12.5px; font-weight:700; color: var(--caramel); text-align:right; padding-right:2px; }
+  @media (max-width: 680px){
+    .ing-head-mini{ display:none; }
+    .ing-row-mini{
+      grid-template-columns:1fr; background:var(--bg); border-radius:8px; padding:10px; margin-bottom:8px; row-gap:6px; border-bottom:none;
+    }
+    .ing-row-mini > *::before{ content: attr(data-label); display:block; font-size:9.5px; text-transform:uppercase; color:var(--ink-soft); font-weight:700; margin-bottom:2px; }
+    .ing-cost-mini{ text-align:left; }
+  }
+
+  .del-btn{
+    background:none; border:none; color: var(--brick); font-size:17px; cursor:pointer;
+    width:26px; height:26px; border-radius:6px; line-height:1; display:flex; align-items:center; justify-content:center;
+  }
+  .del-btn:hover{ background: var(--brick-bg); }
+
+  .add-btn, .add-btn-outline{
+    margin-top:10px; border:none; padding:8px 14px; border-radius:8px; font-family:'Inter',sans-serif;
+    font-weight:600; font-size:12.5px; cursor:pointer; display:inline-flex; align-items:center; gap:5px;
+  }
+  .add-btn{ background: var(--berry); color:#fff; }
+  .add-btn:hover{ background: var(--berry-dark); }
+  .add-btn-outline{ background: var(--paper); color: var(--berry); border:1.5px dashed var(--berry); }
+  .add-btn-outline:hover{ background: var(--mint-bg); }
+  .add-btn-lg{ font-size:13.5px; padding:10px 18px; }
+
+  .mini-metrics{
+    display:flex; flex-wrap:wrap; gap: 14px 22px; margin-top: 12px; padding-top:12px;
+    border-top: 1.5px dashed var(--line);
+  }
+  .mini-metrics .mm{ min-width: 90px; }
+  .mini-metrics .mm .lbl{ font-size:10px; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-soft); font-weight:700; }
+  .mini-metrics .mm .val{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; }
+
+  .helptext{ font-size:12px; color: var(--ink-soft); margin-top:6px; line-height:1.45; }
+
+  /* ---- dashboard geral ---- */
+  .jar-gauge-wrap{ display:flex; align-items:center; gap:18px; margin-bottom:20px; padding-bottom:18px; border-bottom:1.5px dashed var(--line); }
+  .jar-gauge-text{ flex:1; }
+  .jar-gauge-text .status{ font-family:'Fraunces', serif; font-weight:600; font-size:18px; margin:0 0 3px; }
+  .jar-gauge-text p{ margin:0; font-size:12.5px; color: var(--ink-soft); line-height:1.4; }
+
+  .big-metrics-row{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:18px; }
+  .big-metric .label{ font-size:11px; text-transform:uppercase; letter-spacing:0.03em; color: var(--ink-soft); font-weight:700; margin-bottom:3px; }
+  .big-metric .value{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size:24px; color: var(--berry-dark); line-height:1.1; }
+  .big-metric .value small{ font-size:14px; font-weight:500; color: var(--ink-soft); }
+
+  .metric-bars{ display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+  .metric-bar .top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+  .metric-bar .top .name{ font-size:12px; font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em;}
+  .metric-bar .top .pct{ font-family:'JetBrains Mono', monospace; font-weight:700; font-size:14.5px; }
+  .bar-track{ background: var(--bg-lines); border-radius:6px; height:8px; overflow:hidden; }
+  .bar-fill{ height:100%; border-radius:6px; transition: width .3s ease, background .3s ease; }
+
+  table.sabor-table{ width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+  table.sabor-table th{
+    text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:0.03em; color:var(--ink-soft);
+    padding: 6px 6px; border-bottom:1.5px dashed var(--line); font-weight:700;
+  }
+  table.sabor-table td{ padding:7px 6px; border-bottom:1px dotted var(--line); font-family:'JetBrains Mono',monospace; }
+  table.sabor-table td:first-child{ font-family:'Inter',sans-serif; font-weight:600; }
+  table.sabor-table tfoot td{ border-top:1.5px solid var(--ink); border-bottom:none; font-weight:700; padding-top:8px; }
+
+  .receipt{ background: var(--bg); border-radius:10px; padding:14px 14px 6px; margin-top:16px; }
+  .receipt .r-title{ font-family:'Fraunces', serif; font-weight:600; font-size:12.5px; color: var(--ink-soft); margin:0 0 8px; text-transform:uppercase; letter-spacing:0.03em; }
+  .r-line{ display:flex; justify-content:space-between; font-size:12.5px; padding:4px 0; border-bottom:1px dotted var(--line); font-family:'JetBrains Mono', monospace; }
+  .r-line span:first-child{ font-family:'Inter', sans-serif; color: var(--ink-soft); font-size:12px; }
+
+  .footnote{ font-size:11.5px; color: var(--ink-soft); text-align:center; margin-top:26px; line-height:1.6; }
+  .results-card{ position: sticky; top:20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <svg width="44" height="50" viewBox="0 0 46 52" fill="none">
+      <rect x="10" y="2" width="26" height="8" rx="2" fill="#B87333"/>
+      <path d="M6 14 C6 11 8 9 12 9 H34 C38 9 40 11 40 14 V44 C40 48.5 36.5 50 32 50 H14 C9.5 50 6 48.5 6 44 Z" fill="#FFFBF3" stroke="#2E1B12" stroke-width="2"/>
+      <path d="M8 30 C8 30 14 33 23 33 C32 33 38 30 38 30 V44 C38 47.5 35 48.5 31.5 48.5 H14.5 C11 48.5 8 47.5 8 44 Z" fill="#8C2F39"/>
+      <path d="M8 30 C8 30 14 33 23 33 C32 33 38 30 38 30" stroke="#6E1F28" stroke-width="1.5" fill="none"/>
+    </svg>
+    <div>
+      <h1>Ficha de Custos</h1>
+      <p>Monte massas, monte sabores, e veja o resultado real do seu mix de produção.</p>
+    </div>
+  </header>
+
+  <div class="step-flow">
+    <span class="chip"><b>1</b> Massas</span>
+    <span class="arrow">→</span>
+    <span class="chip"><b>2</b> Sabores (massa + recheio)</span>
+    <span class="arrow">→</span>
+    <span class="chip"><b>3</b> Resultado geral ponderado</span>
+  </div>
+
+  <!-- ============ 1. MASSAS ============ -->
+  <div class="section">
+    <div class="card">
+      <span class="tab">1 · Massas</span>
+      <h2>Monte suas massas</h2>
+      <p class="subtitle">Cada massa é uma base (ex: Massa Chocolate, Massa Branca). A quantidade comprada e a usada devem estar na mesma unidade: ex. 1 kg = 1000 g e 1 L = 1000 ml. Informe o rendimento e depois use a massa nos sabores.</p>
+      <div id="massasList"></div>
+      <button class="add-btn add-btn-lg" id="addMassa">+ Nova massa</button>
+    </div>
+  </div>
+
+  <!-- ============ 2. SABORES ============ -->
+  <div class="section">
+    <div class="card">
+      <span class="tab caramel">2 · Sabores</span>
+      <h2>Monte seus sabores</h2>
+      <p class="subtitle">Escolha a massa base, adicione o recheio/topping específico desse sabor (ex: KitKat, morango, coco), e diga quantos potes desse sabor você quer fazer. Preço de venda, taxas e comissões também são por sabor.</p>
+      <div id="saboresList"></div>
+      <button class="add-btn add-btn-lg" id="addSabor">+ Novo sabor</button>
+    </div>
+  </div>
+
+  <!-- ============ 3. RESULTADO GERAL ============ -->
+  <div class="section">
+    <div class="card results-card">
+      <span class="tab mint">3 · Resultado</span>
+      <h2>Resultado geral (todos os sabores)</h2>
+      <p class="subtitle" id="dashSubtitle">—</p>
+
+      <div class="jar-gauge-wrap">
+        <svg id="jarGauge" width="38" height="44" viewBox="0 0 40 46" fill="none">
+          <path d="M4 12 C4 9 6 7 10 7 H30 C34 7 36 9 36 12 V38 C36 42 33 44 29 44 H11 C7 44 4 42 4 38 Z" fill="#FFFBF3" stroke="#2E1B12" stroke-width="2"/>
+          <rect id="jarFill" x="4" y="26" width="32" height="18" fill="#5B8C5A"/>
+        </svg>
+        <div class="jar-gauge-text">
+          <p class="status" id="statusText">—</p>
+          <p id="statusSub">Cadastre massas e sabores para ver o resultado.</p>
+        </div>
+      </div>
+
+      <div class="big-metrics-row">
+        <div class="big-metric">
+          <div class="label">Custo médio ponderado / pote</div>
+          <div class="value" id="custoMedioGeral">R$ 0,00</div>
+        </div>
+        <div class="big-metric">
+          <div class="label">Total de potes no mix</div>
+          <div class="value" id="totalPotesGeral">0</div>
+        </div>
+      </div>
+
+      <div class="metric-bars">
+        <div class="metric-bar">
+          <div class="top"><span class="name">Margem líquida geral</span><span class="pct" id="margemGeralPct">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="margemGeralBar" style="width:0%; background:var(--mint);"></div></div>
+        </div>
+        <div class="metric-bar">
+          <div class="top"><span class="name">ROI geral</span><span class="pct" id="roiGeralPct">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="roiGeralBar" style="width:0%; background:var(--mint);"></div></div>
+        </div>
+      </div>
+
+      <table class="sabor-table">
+        <thead>
+          <tr><th>Sabor</th><th>Qtd.</th><th>Custo/pote</th><th>Margem líq.</th><th>Lucro total</th></tr>
+        </thead>
+        <tbody id="saborTableBody"></tbody>
+        <tfoot>
+          <tr><td>Total</td><td id="tfPotes">0</td><td id="tfCustoMedio">R$ 0,00</td><td id="tfMargem">0%</td><td id="tfLucro">R$ 0,00</td></tr>
+        </tfoot>
+      </table>
+
+      <div class="receipt">
+        <p class="r-title">Divisão do lucro total (todos os sabores)</p>
+        <div class="r-line"><span>Investimento total</span><span id="rInvestimento">R$ 0,00</span></div>
+        <div class="r-line"><span>Receita total</span><span id="rReceita">R$ 0,00</span></div>
+        <div class="r-line"><span>Caixa vai ficar com</span><span id="rCaixaTotal">R$ 0,00</span></div>
+        <div class="r-line"><span>Vendedores vão receber</span><span id="rComissaoVendedorTotal">R$ 0,00</span></div>
+        <div class="r-line"><span>Produtores vão receber</span><span id="rComissaoProdutorTotal">R$ 0,00</span></div>
+        <div class="r-line" style="border-top:1.5px solid var(--ink); margin-top:4px; padding-top:8px; font-weight:700;"><span style="font-family:'Fraunces',serif; font-weight:600; color:var(--ink); font-size:12.5px;">Lucro líquido total</span><span id="rLucroTotal">R$ 0,00</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote">MVP para uso próprio — os cálculos são uma referência de gestão e não substituem orientação contábil.<br>O custo médio geral é ponderado pela quantidade real de potes de cada sabor — sabores mais caros ou mais baratos puxam a média de acordo com quanto você produz de cada um.</p>
+</div>
+
+<script>
+let massas = [];
+let sabores = [];
+let nextMassaId = 1, nextSaborId = 1, nextIngId = 1;
+
+function esc(s){ return (s||'').replace(/"/g,'&quot;'); }
+function formatBRL(n){ if(!isFinite(n)) n=0; return 'R$ ' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function formatPct(n){ if(!isFinite(n)) n=0; return n.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}) + '%'; }
+function ingCusto(i){ return i.qtdComprada>0 ? (i.precoPago/i.qtdComprada)*i.qtdUsada : 0; }
+// IMPORTANTE: qtdComprada e qtdUsada precisam estar na MESMA unidade (ex.: 1000 g comprados e 450 g usados; 1000 ml comprados e 200 ml usados).
+
+/* ---------------- MASSAS ---------------- */
+function addMassa(preset){
+  const id = nextMassaId++;
+  massas.push(Object.assign({ id, nome:'Nova massa', rendimento:100, ingredientes:[] }, preset||{}));
+  renderMassas(); renderSabores(); recalcAll();
+}
+function removeMassa(id){
+  massas = massas.filter(m=>m.id!==id);
+  sabores.forEach(s=>{ if(s.massaId===id) s.massaId = massas[0] ? massas[0].id : null; });
+  renderMassas(); renderSabores(); recalcAll();
+}
+function addMassaIng(massaId){
+  const m = massas.find(x=>x.id===massaId);
+  m.ingredientes.push({ id: nextIngId++, nome:'', precoPago:0, qtdComprada:0, unidade:'g', qtdUsada:0 });
+  renderMassas(); recalcAll();
+}
+function calcMassa(m){
+  const custoTotal = m.ingredientes.reduce((s,i)=>s+ingCusto(i),0);
+  const custoPorPote = m.rendimento>0 ? custoTotal/m.rendimento : 0;
+  return { custoTotal, custoPorPote };
+}
+function ingRowHTML(scope, parentId, ing){
+  const custo = ingCusto(ing);
+  return `<div class="ing-row-mini" data-scope="${scope}" data-parent-id="${parentId}" data-ing-id="${ing.id}">
+    <span data-label="Ingrediente"><input type="text" placeholder="Ingrediente" value="${esc(ing.nome)}" data-field="nome"></span>
+    <span data-label="Preço pago"><input type="number" step="0.01" placeholder="0,00" value="${ing.precoPago||''}" data-field="precoPago"></span>
+    <span data-label="Qtd. comprada"><input type="number" step="0.01" placeholder="0" value="${ing.qtdComprada||''}" data-field="qtdComprada"></span>
+    <span data-label="Unid."><input type="text" placeholder="g/ml/un" value="${esc(ing.unidade)}" data-field="unidade"></span>
+    <span data-label="Usado"><input type="number" step="0.01" placeholder="0" value="${ing.qtdUsada||''}" data-field="qtdUsada"></span>
+    <span class="ing-cost-mini" data-label="Custo">${formatBRL(custo)}</span>
+    <button class="del-btn" data-del-ing="1">×</button>
+  </div>`;
+}
+function renderMassas(){
+  const wrap = document.getElementById('massasList');
+  wrap.innerHTML = massas.map(m => `
+    <div class="sub-card" data-massa-card="${m.id}">
+      <div class="sub-card-head">
+        <div class="field"><label>Nome da massa</label><input type="text" value="${esc(m.nome)}" data-massa-id="${m.id}" data-field="nome"></div>
+        <div class="field small"><label>Rende (potes)</label><input type="number" min="1" value="${m.rendimento}" data-massa-id="${m.id}" data-field="rendimento"></div>
+        <button class="sub-del" data-del-massa="${m.id}" title="Remover massa">×</button>
+      </div>
+      <div class="ing-head-mini"><span>Ingrediente</span><span>Preço pago</span><span>Qtd. comprada</span><span>Unid.</span><span>Usado</span><span>Custo</span><span></span></div>
+      <div class="massa-ing-list" data-massa-ing-list="${m.id}">
+        ${m.ingredientes.map(ing=>ingRowHTML('massa', m.id, ing)).join('')}
+      </div>
+      <button class="add-btn-outline" data-add-massa-ing="${m.id}">+ ingrediente</button>
+      <div class="mini-metrics">
+        <div class="mm"><div class="lbl">Custo total massa</div><div class="val" id="massaTotal-${m.id}">R$ 0,00</div></div>
+        <div class="mm"><div class="lbl">Custo por pote</div><div class="val" id="massaPorPote-${m.id}" style="color:var(--caramel);">R$ 0,00</div></div>
+      </div>
+    </div>
+  `).join('') || '<p class="helptext">Nenhuma massa cadastrada ainda.</p>';
+}
+
+/* ---------------- SABORES ---------------- */
+function addSabor(preset){
+  const id = nextSaborId++;
+  sabores.push(Object.assign({
+    id, nome:'Novo sabor', massaId: massas[0] ? massas[0].id : null,
+    rendimentoTestado:10, desejado:10, precoVenda:12, embalagem:1.8, outros:0,
+    taxa:4, comissaoVendedor:10, comissaoProdutor:10, caixa:5, recheio:[]
+  }, preset||{}));
+  renderSabores(); recalcAll();
+}
+function removeSabor(id){ sabores = sabores.filter(s=>s.id!==id); renderSabores(); recalcAll(); }
+function addSaborIng(saborId){
+  const s = sabores.find(x=>x.id===saborId);
+  s.recheio.push({ id: nextIngId++, nome:'', precoPago:0, qtdComprada:0, unidade:'g', qtdUsada:0 });
+  renderSabores(); recalcAll();
+}
+function calcSabor(s){
+  const massa = massas.find(m=>m.id===s.massaId);
+  const massaCustoPorPote = massa ? calcMassa(massa).custoPorPote : 0;
+  const scaleFactor = s.rendimentoTestado>0 ? s.desejado/s.rendimentoTestado : 0;
+  const custoRecheioTestado = s.recheio.reduce((sum,i)=>sum+ingCusto(i),0);
+  const custoRecheioPorPote = s.rendimentoTestado>0 ? custoRecheioTestado/s.rendimentoTestado : 0;
+  const custoIngredientesPorPote = massaCustoPorPote + custoRecheioPorPote;
+  const custoTotalPorPote = custoIngredientesPorPote + s.embalagem + s.outros;
+
+  const valorTaxa = s.precoVenda*(s.taxa/100);
+  const valorComVend = s.precoVenda*(s.comissaoVendedor/100);
+  const valorComProd = s.precoVenda*(s.comissaoProdutor/100);
+  const valorCaixa = s.precoVenda*(s.caixa/100);
+  const totalDeducoes = valorTaxa+valorComVend+valorComProd+valorCaixa;
+
+  const lucroBruto = s.precoVenda - custoIngredientesPorPote;
+  const margemBruta = s.precoVenda>0 ? (lucroBruto/s.precoVenda)*100 : 0;
+  const lucroLiquido = s.precoVenda - custoTotalPorPote - totalDeducoes;
+  const margemLiquida = s.precoVenda>0 ? (lucroLiquido/s.precoVenda)*100 : 0;
+  const roi = custoTotalPorPote>0 ? (lucroLiquido/custoTotalPorPote)*100 : 0;
+
+  const custoRecheioLote = custoRecheioTestado*scaleFactor;
+  const custoMassaLote = massaCustoPorPote*s.desejado;
+  const investimentoTotal = custoRecheioLote + custoMassaLote + (s.embalagem+s.outros)*s.desejado;
+  const receitaTotal = s.precoVenda*s.desejado;
+  const lucroTotalLote = receitaTotal - investimentoTotal - totalDeducoes*s.desejado;
+
+  return { nome:s.nome, desejado:s.desejado, custoTotalPorPote, margemBruta, margemLiquida, roi,
+    lucroLiquido, investimentoTotal, receitaTotal, lucroTotalLote,
+    valorCaixa: valorCaixa*s.desejado, valorComVend: valorComVend*s.desejado, valorComProd: valorComProd*s.desejado };
+}
+function renderSabores(){
+  const wrap = document.getElementById('saboresList');
+  const massaOptions = m_id => massas.map(m=>`<option value="${m.id}" ${m.id===m_id?'selected':''}>${esc(m.nome)}</option>`).join('') || '<option>Cadastre uma massa primeiro</option>';
+  wrap.innerHTML = sabores.map(s => `
+    <div class="sub-card" data-sabor-card="${s.id}">
+      <div class="sub-card-head">
+        <div class="field"><label>Nome do sabor</label><input type="text" value="${esc(s.nome)}" data-sabor-id="${s.id}" data-field="nome"></div>
+        <div class="field"><label>Massa base</label><select data-sabor-id="${s.id}" data-field="massaId">${massaOptions(s.massaId)}</select></div>
+        <button class="sub-del" data-del-sabor="${s.id}" title="Remover sabor">×</button>
+      </div>
+
+      <div class="fee-grid">
+        <div class="field"><label>Receita testada rende</label><input type="number" min="1" value="${s.rendimentoTestado}" data-sabor-id="${s.id}" data-field="rendimentoTestado"></div>
+        <div class="field"><label>Quero fazer agora</label><input type="number" min="0" value="${s.desejado}" data-sabor-id="${s.id}" data-field="desejado"></div>
+        <div class="field"><label>Preço de venda (R$)</label><input type="number" step="0.01" value="${s.precoVenda}" data-sabor-id="${s.id}" data-field="precoVenda"></div>
+      </div>
+
+      <div class="ing-head-mini"><span>Recheio/topping</span><span>Preço pago</span><span>Qtd. comprada</span><span>Unid.</span><span>Usado</span><span>Custo</span><span></span></div>
+      <div class="sabor-ing-list" data-sabor-ing-list="${s.id}">
+        ${s.recheio.map(ing=>ingRowHTML('sabor', s.id, ing)).join('')}
+      </div>
+      <button class="add-btn-outline" data-add-sabor-ing="${s.id}">+ ingrediente de recheio</button>
+
+      <div class="fee-grid" style="margin-top:16px;">
+        <div class="field"><label>Embalagem/pote (R$)</label><input type="number" step="0.01" value="${s.embalagem}" data-sabor-id="${s.id}" data-field="embalagem"></div>
+        <div class="field"><label>Outros custos/pote (R$)</label><input type="number" step="0.01" value="${s.outros}" data-sabor-id="${s.id}" data-field="outros"></div>
+        <div class="field"><label>Taxa de venda (%)</label><input type="number" step="0.1" value="${s.taxa}" data-sabor-id="${s.id}" data-field="taxa"></div>
+        <div class="field"><label>Comissão vendedor (%)</label><input type="number" step="0.1" value="${s.comissaoVendedor}" data-sabor-id="${s.id}" data-field="comissaoVendedor"></div>
+        <div class="field"><label>Comissão produtor (%)</label><input type="number" step="0.1" value="${s.comissaoProdutor}" data-sabor-id="${s.id}" data-field="comissaoProdutor"></div>
+        <div class="field"><label>Caixa (%)</label><input type="number" step="0.1" value="${s.caixa}" data-sabor-id="${s.id}" data-field="caixa"></div>
+      </div>
+
+      <div class="mini-metrics">
+        <div class="mm"><div class="lbl">Custo/pote</div><div class="val" id="sCusto-${s.id}" style="color:var(--caramel);">R$ 0,00</div></div>
+        <div class="mm"><div class="lbl">Margem bruta</div><div class="val" id="sMB-${s.id}">0%</div></div>
+        <div class="mm"><div class="lbl">Margem líquida</div><div class="val" id="sML-${s.id}">0%</div></div>
+        <div class="mm"><div class="lbl">ROI</div><div class="val" id="sROI-${s.id}">0%</div></div>
+        <div class="mm"><div class="lbl">Lucro total sabor</div><div class="val" id="sLucro-${s.id}" style="color:var(--mint);">R$ 0,00</div></div>
+      </div>
+    </div>
+  `).join('') || '<p class="helptext">Nenhum sabor cadastrado ainda. Crie uma massa primeiro, depois adicione sabores aqui.</p>';
+}
+
+/* ---------------- RECALC / DASHBOARD ---------------- */
+function healthColor(v, thresholds){
+  if (v < 0) return 'var(--brick)';
+  if (v < thresholds) return 'var(--amber)';
+  return 'var(--mint)';
+}
+function recalcAll(){
+  massas.forEach(m=>{
+    const r = calcMassa(m);
+    const elT = document.getElementById('massaTotal-'+m.id);
+    const elP = document.getElementById('massaPorPote-'+m.id);
+    if (elT) elT.textContent = formatBRL(r.custoTotal);
+    if (elP) elP.textContent = formatBRL(r.custoPorPote) + ' /pote';
+  });
+
+  let totalInvest=0, totalReceita=0, totalLucro=0, totalPotes=0, totalCaixa=0, totalComVend=0, totalComProd=0;
+  const rows = [];
+  sabores.forEach(s=>{
+    const r = calcSabor(s);
+    const elC = document.getElementById('sCusto-'+s.id);
+    const elMB = document.getElementById('sMB-'+s.id);
+    const elML = document.getElementById('sML-'+s.id);
+    const elROI = document.getElementById('sROI-'+s.id);
+    const elLucro = document.getElementById('sLucro-'+s.id);
+    if (elC) elC.textContent = formatBRL(r.custoTotalPorPote);
+    if (elMB){ elMB.textContent = formatPct(r.margemBruta); elMB.style.color = healthColor(r.margemBruta, 15); }
+    if (elML){ elML.textContent = formatPct(r.margemLiquida); elML.style.color = healthColor(r.margemLiquida, 15); }
+    if (elROI){ elROI.textContent = formatPct(r.roi); elROI.style.color = healthColor(r.roi, 30); }
+    if (elLucro) elLucro.textContent = formatBRL(r.lucroTotalLote);
+
+    totalInvest += r.investimentoTotal;
+    totalReceita += r.receitaTotal;
+    totalLucro += r.lucroTotalLote;
+    totalPotes += r.desejado;
+    totalCaixa += r.valorCaixa;
+    totalComVend += r.valorComVend;
+    totalComProd += r.valorComProd;
+    rows.push(r);
+  });
+
+  const custoMedioGeral = totalPotes>0 ? totalInvest/totalPotes : 0;
+  const margemGeral = totalReceita>0 ? (totalLucro/totalReceita)*100 : 0;
+  const roiGeral = totalInvest>0 ? (totalLucro/totalInvest)*100 : 0;
+
+  document.getElementById('dashSubtitle').textContent = sabores.length
+    ? `Mix de ${sabores.length} sabor(es) somando ${totalPotes} potes no total.`
+    : 'Cadastre sabores para calcular o mix.';
+  document.getElementById('custoMedioGeral').textContent = formatBRL(custoMedioGeral);
+  document.getElementById('totalPotesGeral').textContent = totalPotes.toLocaleString('pt-BR');
+
+  setBar('margemGeral', margemGeral, 15);
+  setBar('roiGeral', roiGeral, 30, true);
+
+  document.getElementById('rInvestimento').textContent = formatBRL(totalInvest);
+  document.getElementById('rReceita').textContent = formatBRL(totalReceita);
+  document.getElementById('rCaixaTotal').textContent = formatBRL(totalCaixa);
+  document.getElementById('rComissaoVendedorTotal').textContent = formatBRL(totalComVend);
+  document.getElementById('rComissaoProdutorTotal').textContent = formatBRL(totalComProd);
+  document.getElementById('rLucroTotal').textContent = formatBRL(totalLucro);
+
+  const tbody = document.getElementById('saborTableBody');
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${esc(r.nome)}</td>
+      <td>${r.desejado}</td>
+      <td>${formatBRL(r.custoTotalPorPote)}</td>
+      <td style="color:${healthColor(r.margemLiquida,15)}">${formatPct(r.margemLiquida)}</td>
+      <td>${formatBRL(r.lucroTotalLote)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" style="font-family:Inter,sans-serif; color:var(--ink-soft);">Sem sabores cadastrados.</td></tr>';
+
+  document.getElementById('tfPotes').textContent = totalPotes;
+  document.getElementById('tfCustoMedio').textContent = formatBRL(custoMedioGeral);
+  document.getElementById('tfMargem').textContent = formatPct(margemGeral);
+  document.getElementById('tfLucro').textContent = formatBRL(totalLucro);
+
+  updateJarGauge(margemGeral);
+}
+
+function setBar(prefix, value, threshold, isROI){
+  const pctEl = document.getElementById(prefix+'Pct');
+  const barEl = document.getElementById(prefix+'Bar');
+  pctEl.textContent = formatPct(value);
+  const denom = isROI ? 200 : 100;
+  const clamped = Math.max(0, Math.min(value, denom));
+  barEl.style.width = Math.min(100, (clamped/denom)*100) + '%';
+  const color = healthColor(value, threshold);
+  barEl.style.background = color;
+  pctEl.style.color = color;
+}
+
+function updateJarGauge(margemGeral){
+  const fillEl = document.getElementById('jarFill');
+  const statusText = document.getElementById('statusText');
+  const statusSub = document.getElementById('statusSub');
+  const pctFill = Math.max(0.06, Math.min(margemGeral,100)/100);
+  const jarTop=7, jarBottom=44;
+  const fillHeight = (jarBottom-jarTop)*pctFill;
+  fillEl.setAttribute('y', jarBottom-fillHeight);
+  fillEl.setAttribute('height', fillHeight);
+  if (margemGeral < 0){
+    fillEl.setAttribute('fill','#B23A34'); statusText.textContent='Prejuízo'; statusText.style.color='var(--brick)';
+    statusSub.textContent='No mix atual, o negócio está no vermelho. Revise preços ou custos dos sabores.';
+  } else if (margemGeral < 15){
+    fillEl.setAttribute('fill','#C08A2E'); statusText.textContent='Margem apertada'; statusText.style.color='var(--amber)';
+    statusSub.textContent='O mix dá lucro, mas com pouca folga. Veja quais sabores estão pesando o custo médio.';
+  } else {
+    fillEl.setAttribute('fill','#5B8C5A'); statusText.textContent='Saudável'; statusText.style.color='var(--mint)';
+    statusSub.textContent='Boa margem líquida considerando todos os sabores do mix.';
+  }
+}
+
+/* ---------------- EVENTS ---------------- */
+document.getElementById('addMassa').addEventListener('click', ()=>addMassa());
+document.getElementById('addSabor').addEventListener('click', ()=>addSabor());
+
+document.getElementById('massasList').addEventListener('input', e=>{
+  const t = e.target;
+  if (t.dataset.ingId){
+    const massa = massas.find(m=>m.id===parseInt(t.closest('[data-parent-id]').dataset.parentId));
+    const ing = massa.ingredientes.find(i=>i.id===parseInt(t.closest('[data-ing-id]').dataset.ingId));
+    ing[t.dataset.field] = (t.dataset.field==='nome'||t.dataset.field==='unidade') ? t.value : (parseFloat(t.value)||0);
+    const row = t.closest('.ing-row-mini');
+    row.querySelector('.ing-cost-mini').textContent = formatBRL(ingCusto(ing));
+  } else if (t.dataset.massaId){
+    const massa = massas.find(m=>m.id===parseInt(t.dataset.massaId));
+    massa[t.dataset.field] = t.dataset.field==='nome' ? t.value : (parseFloat(t.value)||0);
+    if (t.dataset.field==='nome'){
+      document.querySelectorAll(`select[data-field="massaId"] option[value="${massa.id}"]`).forEach(o=>o.textContent=massa.nome);
+    }
+  }
+  recalcAll();
+});
+document.getElementById('massasList').addEventListener('click', e=>{
+  const delMassa = e.target.dataset.delMassa;
+  const addIng = e.target.dataset.addMassaIng;
+  const delIng = e.target.dataset.delIng;
+  if (delMassa) removeMassa(parseInt(delMassa));
+  else if (addIng) addMassaIng(parseInt(addIng));
+  else if (delIng){
+    const row = e.target.closest('.ing-row-mini');
+    const massa = massas.find(m=>m.id===parseInt(row.dataset.parentId));
+    massa.ingredientes = massa.ingredientes.filter(i=>i.id!==parseInt(row.dataset.ingId));
+    renderMassas(); recalcAll();
+  }
+});
+
+document.getElementById('saboresList').addEventListener('input', e=>{
+  const t = e.target;
+  if (t.dataset.ingId){
+    const sabor = sabores.find(s=>s.id===parseInt(t.closest('[data-parent-id]').dataset.parentId));
+    const ing = sabor.recheio.find(i=>i.id===parseInt(t.closest('[data-ing-id]').dataset.ingId));
+    ing[t.dataset.field] = (t.dataset.field==='nome'||t.dataset.field==='unidade') ? t.value : (parseFloat(t.value)||0);
+    const row = t.closest('.ing-row-mini');
+    row.querySelector('.ing-cost-mini').textContent = formatBRL(ingCusto(ing));
+  } else if (t.dataset.saborId){
+    const sabor = sabores.find(s=>s.id===parseInt(t.dataset.saborId));
+    const numFields = ['rendimentoTestado','desejado','precoVenda','embalagem','outros','taxa','comissaoVendedor','comissaoProdutor','caixa'];
+    if (t.dataset.field==='massaId') sabor.massaId = parseInt(t.value);
+    else if (t.dataset.field==='nome') sabor.nome = t.value;
+    else if (numFields.includes(t.dataset.field)) sabor[t.dataset.field] = parseFloat(t.value)||0;
+  }
+  recalcAll();
+});
+document.getElementById('saboresList').addEventListener('change', e=>{
+  if (e.target.tagName==='SELECT' && e.target.dataset.field==='massaId'){
+    const sabor = sabores.find(s=>s.id===parseInt(e.target.dataset.saborId));
+    sabor.massaId = parseInt(e.target.value);
+    recalcAll();
+  }
+});
+document.getElementById('saboresList').addEventListener('click', e=>{
+  const delSabor = e.target.dataset.delSabor;
+  const addIng = e.target.dataset.addSaborIng;
+  const delIng = e.target.dataset.delIng;
+  if (delSabor) removeSabor(parseInt(delSabor));
+  else if (addIng) addSaborIng(parseInt(addIng));
+  else if (delIng){
+    const row = e.target.closest('.ing-row-mini');
+    const sabor = sabores.find(s=>s.id===parseInt(row.dataset.parentId));
+    sabor.recheio = sabor.recheio.filter(i=>i.id!==parseInt(row.dataset.ingId));
+    renderSabores(); recalcAll();
+  }
+});
+
+/* ---------------- SEED: 100 bolos / 10 sabores ----------------
+   Planejamento: 10 sabores x 10 potes = 100 potes de ~250 ml.
+   As receitas foram adaptadas das medidas do artigo da Nuvemshop.
+   Como o artigo não informa rendimento em potes, consideramos cada receita
+   adaptada como um lote de 10 potes. O custo é calculado por lote e dividido
+   por 10. Preços do encarte Supermarket 28-31/08/2026 quando identificados;
+   itens sem preço no encarte recebem estimativa de mercado e ficam editáveis.
+*/
+function ing(nome, precoPago, qtdComprada, unidade, qtdUsada){
+  return {id:nextIngId++, nome, precoPago, qtdComprada, unidade, qtdUsada};
+}
+
+/* Massas base: medidas de referência da Nuvemshop, adaptadas para 10 potes.
+   Ingredientes sem preço no encarte: estimativa editável. */
+addMassa({
+  nome:'Massa branca — Ninho / frutas / beijinho',
+  rendimento:10,
+  ingredientes:[
+    ing('Ovos',10.00,20,'un',4),                 // estimativa: R$10 / 20 un
+    ing('Açúcar refinado',2.95,1000,'g',450),
+    ing('Manteiga sem sal',31.90,500,'g',250),  // encarte: R$31,90 / 500g
+    ing('Farinha de trigo',2.79,1000,'g',450),
+    ing('Leite integral',4.79,1000,'ml',200),
+    ing('Fermento químico',5.00,100,'g',20)     // estimativa editável
+  ]
+});
+
+addMassa({
+  nome:'Massa chocolate — maracujá / bombons / KitKat',
+  rendimento:10,
+  ingredientes:[
+    ing('Ovos',10.00,20,'un',3),
+    ing('Açúcar refinado',2.95,1000,'g',200),
+    ing('Farinha de trigo',2.79,1000,'g',180),
+    ing('Óleo de soja',6.39,900,'ml',120),
+    ing('Chocolate em pó 50%',15.00,200,'g',60),
+    ing('Leite integral',4.79,1000,'ml',180),
+    ing('Bicarbonato de sódio',6.00,100,'g',5),
+    ing('Fermento químico',5.00,100,'g',10)
+  ]
+});
+
+addMassa({
+  nome:'Massa chocolate — brigadeiros / bombons',
+  rendimento:10,
+  ingredientes:[
+    ing('Farinha de trigo',2.79,1000,'g',300),
+    ing('Chocolate em pó 50%',15.00,200,'g',100),
+    ing('Açúcar refinado',2.95,1000,'g',200),
+    ing('Óleo de soja',6.39,900,'ml',120),
+    ing('Ovos',10.00,20,'un',2),
+    ing('Água',2.00,5000,'ml',480),
+    ing('Bicarbonato de sódio',6.00,100,'g',2.5),
+    ing('Fermento químico',5.00,100,'g',15)
+  ]
+});
+
+addMassa({
+  nome:'Massa cenoura — brigadeiro',
+  rendimento:10,
+  ingredientes:[
+    ing('Ovos',10.00,20,'un',3),
+    ing('Cenoura',5.00,1000,'g',500),
+    ing('Açúcar refinado',2.95,1000,'g',400),
+    ing('Farinha de trigo',2.79,1000,'g',360),
+    ing('Óleo de soja',6.39,900,'ml',240),
+    ing('Fermento químico',5.00,100,'g',15)
+  ]
+});
+
+addMassa({
+  nome:'Massa baunilha — Kinder / KitKat',
+  rendimento:10,
+  ingredientes:[
+    ing('Manteiga sem sal',31.90,500,'g',15),
+    ing('Açúcar refinado',2.95,1000,'g',200),
+    ing('Ovos',10.00,20,'un',2),
+    ing('Farinha de trigo',2.79,1000,'g',360),
+    ing('Leite integral',4.79,1000,'ml',250),
+    ing('Fermento químico',5.00,100,'g',5)
+  ]
+});
+
+const massaBranca = massas[0].id;
+const massaChocolate = massas[1].id;
+const massaChocolateBrig = massas[2].id;
+const massaCenoura = massas[3].id;
+const massaBaunilha = massas[4].id;
+
+function baseLC(){
+  return [
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2)
+  ];
+}
+
+/* 10 sabores x 10 potes. */
+addSabor({
+  nome:'Brigadeiro Preto', massaId:massaChocolateBrig, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ...baseLC(),
+    ing('Cacau / chocolate em pó 50%',15.00,200,'g',60),
+    ing('Granulado preto (gotinhas)',8.00,1,'pacote',1)
+  ]
+});
+
+addSabor({
+  nome:'Brigadeiro Branco', massaId:massaBranca, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2),
+    ing('Leite em pó Ninho',16.98,380,'g',100),
+    ing('Granulado branco (gotinhas)',8.00,1,'pacote',1)
+  ]
+});
+
+addSabor({
+  nome:'Brigadeiro Gourmet (Cacau)', massaId:massaChocolateBrig, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ...baseLC(),
+    ing('Cacau / chocolate em pó 50%',15.00,200,'g',80),
+    ing('Granulado preto (gotinhas)',8.00,1,'pacote',0.5)
+  ]
+});
+
+addSabor({
+  nome:'KitKat', massaId:massaBaunilha, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2),
+    ing('KitKat',4.50,1,'un',10)
+  ]
+});
+
+addSabor({
+  nome:'Bombom Preto', massaId:massaChocolate, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2),
+    ing('Bombom preto',15.00,1,'pacote',1)
+  ]
+});
+
+addSabor({
+  nome:'Bombom Branco', massaId:massaBranca, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2),
+    ing('Leite em pó Ninho',16.98,380,'g',80),
+    ing('Bombom branco',15.00,1,'pacote',1)
+  ]
+});
+
+addSabor({
+  nome:'Ninho com Morango', massaId:massaBranca, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',2),
+    ing('Leite em pó Ninho',16.98,380,'g',100),
+    ing('Morango',8.00,1,'caixa',2)
+  ]
+});
+
+addSabor({
+  nome:'Maracujá com Chocolate', massaId:massaChocolate, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',1),
+    ing('Creme de leite 200 g',1.95,1,'un',1),
+    ing('Leite integral',4.79,1000,'ml',120),
+    ing('Amido de milho',5.00,200,'g',16),
+    ing('Ovos / gemas',10.00,20,'un',2),
+    ing('Maracujá',3.00,1,'un',2),
+    ing('Açúcar refinado',2.95,1000,'g',50),
+    ing('Água',2.00,5000,'ml',120)
+  ]
+});
+
+addSabor({
+  nome:'Abacaxi com Coco', massaId:massaBranca, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Creme de leite 200 g',1.95,1,'un',1),
+    ing('Abacaxi',8.00,1,'un',1),
+    ing('Coco ralado',4.00,1,'pacote',2)
+  ]
+});
+
+addSabor({
+  nome:'Beijinho / Coco', massaId:massaBranca, rendimentoTestado:10, desejado:10,
+  recheio:[
+    ing('Leite condensado 395 g',4.85,1,'un',2),
+    ing('Coco ralado',4.00,1,'pacote',2),
+    ing('Creme de leite 200 g',1.95,1,'un',1),
+    ing('Granulado branco (gotinhas)',8.00,1,'pacote',0.5)
+  ]
+});
+
+renderMassas();
+renderSabores();
+recalcAll();
+</script>
+</body>
+</html>
