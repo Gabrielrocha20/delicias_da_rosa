@@ -13,7 +13,8 @@ docker compose --env-file docker/.env.prod up -d --build
 
 O frontend é publicado em `http://127.0.0.1:8085` e a API fica disponível
 somente na própria VPS, em `http://127.0.0.1:8087`. A aplicação web encaminha
-`/api/` para o backend pela rede Docker interna.
+`/api/` para o backend pela rede Docker interna. Em produção, teste a API
+local com `curl -H 'X-Forwarded-Proto: https' http://127.0.0.1:8087/api/health`.
 
 Use o arquivo `nginx.rosas-candy.conf.example` como virtual host do Nginx do
 servidor. Portanto, o upstream correto é:

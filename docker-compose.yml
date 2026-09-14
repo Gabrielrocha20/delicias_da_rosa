@@ -25,7 +25,13 @@ services:
     ports:
       - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_PORT:-8087}:8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=2)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; request=urllib.request.Request('http://127.0.0.1:8000/api/health', headers={'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=2)",
+        ]
       interval: 15s
       timeout: 5s
       start_period: 30s
