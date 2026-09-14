@@ -11,15 +11,15 @@ cp docker/env.prod.example docker/.env.prod
 docker compose --env-file docker/.env.prod up -d --build
 ```
 
-O único endereço publicado pelo Compose é `http://127.0.0.1:8080`. O backend
-não possui porta publicada: a aplicação web encaminha `/api/` para ele pela
-rede Docker interna.
+O frontend é publicado em `http://127.0.0.1:8085` e a API fica disponível
+somente na própria VPS, em `http://127.0.0.1:8087`. A aplicação web encaminha
+`/api/` para o backend pela rede Docker interna.
 
 Use o arquivo `nginx.rosas-candy.conf.example` como virtual host do Nginx do
 servidor. Portanto, o upstream correto é:
 
 ```nginx
-proxy_pass http://127.0.0.1:8080;
+proxy_pass http://127.0.0.1:8085;
 ```
 
 Depois de habilitar o site no Nginx, configure TLS (por exemplo, com Certbot) e

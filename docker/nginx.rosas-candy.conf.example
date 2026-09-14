@@ -1,11 +1,12 @@
 # Salve como /etc/nginx/sites-available/rosas-candy e ajuste o server_name.
-# O Compose publica somente este upstream no host: http://127.0.0.1:8080
+# O Nginx encaminha o site para este upstream: http://127.0.0.1:8085
+# A API de diagnostico fica privada em http://127.0.0.1:8087.
 server {
     listen 80;
     server_name painel.seudominio.com;
 
     location / {
-        proxy_pass http://127.0.0.1:8080;
+        proxy_pass http://127.0.0.1:8085;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
