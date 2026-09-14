@@ -103,19 +103,19 @@ A suíte executa testes unitários e de segurança nos dois projetos. O backend 
 
 ## Docker Compose
 
-Desenvolvimento com PostgreSQL no próprio Compose:
+O Compose usa SQLite em um volume Docker persistente. Para desenvolvimento:
 
 ```powershell
 Copy-Item docker/env.dev.example docker/.env.dev
-docker compose --env-file docker/.env.dev --profile local-db up -d --build
+docker compose --env-file docker/.env.dev up -d --build
 ```
 
-Produção com PostgreSQL externo:
+Para produção, copie `docker/env.prod.example`, defina o domínio e a chave
+secreta e execute o mesmo comando com `.env.prod`. O único endereço publicado
+no host é `http://127.0.0.1:8080`; configure o Nginx externo com
+`proxy_pass http://127.0.0.1:8080`. O frontend encaminha `/api` para o Django
+pela rede Docker interna, portanto o backend não fica exposto.
 
-```powershell
-Copy-Item docker/env.prod.example docker/.env.prod
-# Edite docker/.env.prod e só então execute:
-docker compose --env-file docker/.env.prod up -d --build backend frontend
-```
-
-O frontend fica público na porta configurada e usa `/api` na mesma origem. O Nginx encaminha as chamadas ao Django pela rede interna. A porta direta do backend é vinculada a `127.0.0.1` por padrão.
+Veja [docker/README.md](docker/README.md) e
+[docker/nginx.rosas-candy.conf.example](docker/nginx.rosas-candy.conf.example)
+para o passo a passo e o virtual host.
