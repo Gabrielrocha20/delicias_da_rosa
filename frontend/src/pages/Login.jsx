@@ -5,7 +5,7 @@ import { api, setSession } from '../lib/api';
 import { ErrorNotice } from '../components/UI';
 
 export default function Login() {
-  const [form, setForm] = useState({ email: 'admin@rosascandy.com', password: 'admin123' });
+  const [form, setForm] = useState({ email: '', password: '' });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -40,8 +40,7 @@ export default function Login() {
         <p>Entre com seus dados para continuar.</p>
         <ErrorNotice message={error} />
         <label className="field"><span>E-mail</span><input type="email" value={form.email} onChange={e => setForm({...form, email:e.target.value})} required /></label>
-        <label className="field"><span>Senha</span><div className="password-input"><input type={show?'text':'password'} value={form.password} onChange={e => setForm({...form, password:e.target.value})} required /><button type="button" onClick={() => setShow(!show)}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
-        <div className="login-hint"><span>Acesso de demonstração já preenchido</span></div>
+        <label className="field"><span>Senha</span><div className="password-input"><input type={show?'text':'password'} value={form.password} onChange={e => setForm({...form, password:e.target.value})} required /><button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
         <button className="btn primary login-submit" disabled={loading}>{loading?<LoaderCircle className="spin" size={19}/>:<>Entrar no painel <ArrowRight size={18}/></>}</button>
       </form>
     </section>

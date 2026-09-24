@@ -37,11 +37,14 @@ function Layout() {
   const user = getStoredUser();
   const navigate = useNavigate();
   const logout = () => { clearSession(); navigate('/login'); };
+  const availableNav = nav.filter(([, , , roles]) => roles.includes(user?.role));
+  const mobilePaths = ['/', '/vendas', '/producao', '/verdade'];
+  const mobileNav = mobilePaths.map(path => availableNav.find(([to]) => to === path)).filter(Boolean);
 
   return <div className="app-shell">
     <aside className={`sidebar ${menu ? 'open' : ''}`}>
       <div className="sidebar-top"><Brand /><button className="mobile-close icon-btn" onClick={() => setMenu(false)}><X /></button></div>
-      <nav>{nav.filter(([, , , roles])=>roles.includes(user?.role)).map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenu(false)}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
+      <nav>{availableNav.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenu(false)}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
       <div className="sidebar-foot">
         <div className="user-card"><div className="avatar">{user?.name?.slice(0, 2).toUpperCase() || 'RC'}</div><div><strong>{user?.name || 'Admin'}</strong><span>{{admin:'Administrador',seller:'Vendedor',producer:'Produtor'}[user?.role]||'Usuário'}</span></div><ChevronDown size={15} /></div>
         <button className="logout" onClick={logout}><LogOut size={17} /> Sair da conta</button>
@@ -49,9 +52,17 @@ function Layout() {
     </aside>
     {menu && <div className="sidebar-overlay" onClick={() => setMenu(false)} />}
     <main className="main-area">
-      <div className="mobile-bar"><button className="icon-btn" onClick={() => setMenu(true)}><Menu /></button><Brand compact /><span /></div>
+      <div className="mobile-bar">
+        <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Abrir menu"><Menu /></button>
+        <Brand compact />
+        <button className="mobile-avatar" onClick={() => setMenu(true)} aria-label="Ver perfil e menu">{user?.name?.slice(0, 2).toUpperCase() || 'RC'}</button>
+      </div>
       <Outlet />
     </main>
+    <nav className="mobile-tabbar" aria-label="Navegação principal">
+      {mobileNav.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} aria-label={label}><Icon size={21} /><span>{label.split(' ')[0]}</span></NavLink>)}
+      <button onClick={() => setMenu(true)} aria-label="Abrir todos os menus"><Menu size={22} /><span>Menu</span></button>
+    </nav>
   </div>;
 }
 

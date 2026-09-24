@@ -1,0 +1,11 @@
+ENV_FILE=docker/.env.prod
+container=$(docker compose --env-file "$ENV_FILE" ps -q backend)
+
+if [ -z "$container" ]; then
+  echo "Não encontrei o container backend. Confira se $ENV_FILE existe e se o serviço está rodando."
+else
+  docker compose --env-file "$ENV_FILE" stop backend
+  cp backend/data/rosas-candy.db "backend/data/rosas-candy-backup-$(date +%F-%H%M%S).db"
+  docker cp "$container:/app/data/rosas-candy.db" backend/data/rosas-candy.db
+  docker compose --env-file "$ENV_FILE" start backend
+fi

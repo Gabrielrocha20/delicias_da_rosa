@@ -24,6 +24,8 @@ it('mostra erro de autenticacao sem criar uma sessao', async () => {
   api.mockRejectedValue(new Error('E-mail ou senha incorretos.'));
   render(<MemoryRouter><Login /></MemoryRouter>);
 
+  await user.type(screen.getByLabelText(/e-mail/i), 'usuario@exemplo.com');
+  await user.type(screen.getByLabelText(/^senha$/i), 'senha-segura');
   await user.click(screen.getByRole('button', { name: /entrar no painel/i }));
 
   expect(await screen.findByText('E-mail ou senha incorretos.')).toBeInTheDocument();
@@ -37,6 +39,8 @@ it('salva somente a sessao devolvida pelo backend', async () => {
   api.mockResolvedValue(session);
   render(<MemoryRouter><Login /></MemoryRouter>);
 
+  await user.type(screen.getByLabelText(/e-mail/i), 'usuario@exemplo.com');
+  await user.type(screen.getByLabelText(/^senha$/i), 'senha-segura');
   await user.click(screen.getByRole('button', { name: /entrar no painel/i }));
 
   expect(api).toHaveBeenCalledWith('/auth/login', expect.objectContaining({ method: 'POST' }));
