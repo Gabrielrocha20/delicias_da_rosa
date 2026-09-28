@@ -144,3 +144,19 @@ class Sale(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='paid')
     sold_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class CashMovement(models.Model):
+    INCOME = 'income'
+    EXPENSE = 'expense'
+    TYPE_CHOICES = [(INCOME, 'Entrada'), (EXPENSE, 'Saída')]
+
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    category = models.CharField(max_length=100)
+    description = models.CharField(max_length=255, blank=True)
+    amount = models.FloatField()
+    occurred_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-id']

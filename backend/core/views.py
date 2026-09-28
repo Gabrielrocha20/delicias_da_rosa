@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from django.conf import settings
-from django.db import transaction
+from django.db import models, transaction
 from django.contrib.auth import authenticate
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
@@ -14,10 +14,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from .models import Establishment, Ingredient, Person, Product, ProductionBatch, ProductionConsumption, Sale, User
+from .models import CashMovement, Establishment, Ingredient, Person, Product, ProductionBatch, ProductionConsumption, Sale, User
 from .permissions import IsAdminOrProducer, IsAdminOrSeller, IsAdminRole
 from .serializers import (
     EstablishmentSerializer,
+    CashMovementSerializer,
     EstablishmentOperationalSerializer,
     IngredientSerializer,
     PersonSerializer,
@@ -247,14 +248,32 @@ class SaleViewSet(ModelViewSet):
         serializer.save(seller=seller, producer=self.resolved_producer(serializer))
 
 
+class CashMovementViewSet(ModelViewSet):
+    queryset = CashMovement.objects.all()
+    serializer_class = CashMovementSerializer
+    permission_classes = [IsAdminRole]
+
+    def list(self, request, *args, **kwargs):
+        paid_sales = Sale.objects.filter(status='paid').aggregate(total=models.Sum(models.F('quantity') * models.F('unit_price')))['total'] or 0
+        income = CashMovement.objects.filter(type=CashMovement.INCOME).aggregate(total=models.Sum('amount'))['total'] or 0
+        expenses = CashMovement.objects.filter(type=CashMovement.EXPENSE).aggregate(total=models.Sum('amount'))['total'] or 0
+        return Response({
+            'balance': paid_sales + income - expenses,
+            'sales_income': paid_sales,
+            'manual_income': income,
+            'expenses': expenses,
+            'movements': self.get_serializer(self.get_queryset(), many=True).data,
+        })
+
+
 class DashboardView(APIView):
     def get(self, request):
-        return Response(dashboard_data(request.user, request.query_params.get('range')))
+        return Response(dashboard_data(request.user, request.query_params.get('range'), request.query_params.get('start'), request.query_params.get('end')))
 
 
 class TransparencyView(APIView):
     def get(self, request):
-        return Response(transparency_data(request.query_params.get('range')))
+        return Response(transparency_data(request.query_params.get('range'), request.query_params.get('start'), request.query_params.get('end')))
 
 
 def frontend_asset(request, path):

@@ -24,10 +24,17 @@ function ChartTooltip({ active, payload, label }) {
 
 export default function Dashboard() {
   const [range, setRange] = useState('30d');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const user = getStoredUser();
-  useEffect(() => { setLoading(true); api(`/dashboard?range=${range}`).then(setData).finally(() => setLoading(false)); }, [range]);
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ range });
+    if (startDate && endDate) { params.set('start', startDate); params.set('end', endDate); }
+    api(`/dashboard?${params}`).then(setData).finally(() => setLoading(false));
+  }, [range, startDate, endDate]);
   if (loading && !data) return <div className="page"><Loading /></div>;
   const m = data?.metrics || {};
   const f = data?.forecast || {};
@@ -35,7 +42,7 @@ export default function Dashboard() {
   return <div className="page dashboard-page">
     <header className="dashboard-head">
       <div><span className="eyebrow">{data.personal?'Meu desempenho':'Painel da operação'}</span><h1>Olá, {user?.name?.split(' ')[0] || 'Rosa'} <span>👋</span></h1><p>{data.personal?`Aqui estão apenas os seus números como ${data.role==='seller'?'vendedor':'produtor'}.`:'Aqui está o resumo completo do seu negócio.'}</p></div>
-      <div className="range-picker">{Object.entries(rangeLabels).map(([key,label])=><button key={key} className={range===key?'active':''} onClick={()=>setRange(key)}>{label}</button>)}</div>
+      <div className="analysis-filters"><div className="range-picker">{Object.entries(rangeLabels).map(([key,label])=><button key={key} className={!startDate&&!endDate&&range===key?'active':''} onClick={()=>{setStartDate('');setEndDate('');setRange(key)}}>{label}</button>)}</div><div className="date-filter"><label>De <input aria-label="Data inicial da análise" type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label><label>Até <input aria-label="Data final da análise" type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}/></label></div></div>
     </header>
 
     <section className="metrics-grid">

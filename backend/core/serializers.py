@@ -3,7 +3,19 @@ from django.db.models import Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
-from .models import Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, User
+from .models import CashMovement, Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, User
+
+
+class CashMovementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashMovement
+        fields = ['id', 'type', 'category', 'description', 'amount', 'occurred_at', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('O valor deve ser maior que zero.')
+        return value
 
 
 class IngredientSerializer(serializers.ModelSerializer):

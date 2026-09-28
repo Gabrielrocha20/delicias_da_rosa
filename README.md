@@ -65,12 +65,15 @@ backend/
 - Comissão do vendedor/produtor = faturamento das vendas vinculadas × percentual definido no produto.
 - Resultado do proprietário = faturamento − custo direto − taxas − vendedor − produtor − parceiro − reserva de caixa.
 - ROI da empresa = resultado do proprietário / custo direto dos produtos.
+- Saldo do caixa = vendas pagas + entradas manuais − saídas manuais. Vendas pendentes e canceladas não entram no saldo.
 
 ## Cargos e segurança
 
 As permissões são aplicadas tanto na navegação quanto na API. Um vendedor não consegue consultar vendas de outro vendedor, e um produtor não consegue consultar lotes de outro produtor mesmo que tente acessar o endpoint diretamente.
 
 O administrador cria contas em **Acessos** e as vincula a uma pessoa cadastrada na **Equipe**. A **Página da Verdade** fica disponível para todos os usuários autenticados.
+
+O controle **Entradas e saídas** é exclusivo de administradores e registra compras, pagamentos e outros movimentos manuais do caixa. As análises aceitam períodos prontos ou datas inicial e final.
 
 Os estabelecimentos parceiros podem revender produtos específicos com percentuais diferentes. A comissão vigente é gravada na venda para que alterações futuras no contrato não mudem o histórico.
 

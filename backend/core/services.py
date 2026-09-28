@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import timedelta
+from datetime import date, datetime, timedelta, time
 from django.db import models
 from django.db.models import Sum
 from django.utils import timezone
@@ -9,16 +9,27 @@ from .models import Establishment, Ingredient, Product, ProductionBatch, Sale
 RANGE_DAYS = {'7d': 7, '30d': 30, '90d': 90, '12m': 365}
 
 
-def period(range_key):
+def period(range_key, start_date=None, end_date=None):
+    try:
+        start = date.fromisoformat(start_date) if start_date else None
+        end = date.fromisoformat(end_date) if end_date else None
+        if start and end and end >= start:
+            since = timezone.make_aware(datetime.combine(start, time.min))
+            until = timezone.make_aware(datetime.combine(end + timedelta(days=1), time.min))
+            return (end - start).days + 1, since, until
+    except (TypeError, ValueError):
+        pass
     days = RANGE_DAYS.get(range_key, 30)
     since = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days - 1)
-    return days, since
+    return days, since, None
 
 
-def scoped_sales(user, since=None):
+def scoped_sales(user, since=None, until=None):
     sales = Sale.objects.exclude(status='cancelled').select_related('product', 'seller', 'producer', 'establishment')
     if since:
         sales = sales.filter(sold_at__gte=since)
+    if until:
+        sales = sales.filter(sold_at__lt=until)
     if user.role == 'seller':
         sales = sales.filter(seller=user.person)
     elif user.role == 'producer':
@@ -52,9 +63,9 @@ def filled_trend(sales, since, days, role):
     return result
 
 
-def dashboard_data(user, range_key):
-    days, since = period(range_key)
-    sales = list(scoped_sales(user, since))
+def dashboard_data(user, range_key, start_date=None, end_date=None):
+    days, since, until = period(range_key, start_date, end_date)
+    sales = list(scoped_sales(user, since, until))
     revenue = sum(s.quantity * s.unit_price for s in sales)
     units = sum(s.quantity for s in sales)
     product_cost = sum(s.quantity * s.product.unit_cost for s in sales)
@@ -67,6 +78,8 @@ def dashboard_data(user, range_key):
     shown_profit = owner_profit if user.role == 'admin' else personal_earnings
 
     production = ProductionBatch.objects.filter(status='completed', produced_at__gte=since)
+    if until:
+        production = production.filter(produced_at__lt=until)
     if user.role == 'producer':
         production = production.filter(producer=user.person)
     produced = 0 if user.role == 'seller' else production.aggregate(total=Sum('quantity'))['total'] or 0
@@ -125,9 +138,12 @@ def dashboard_data(user, range_key):
     }
 
 
-def transparency_data(range_key):
-    days, since = period(range_key)
-    sales = list(Sale.objects.exclude(status='cancelled').filter(sold_at__gte=since).select_related(
+def transparency_data(range_key, start_date=None, end_date=None):
+    days, since, until = period(range_key, start_date, end_date)
+    sales_query = Sale.objects.exclude(status='cancelled').filter(sold_at__gte=since)
+    if until:
+        sales_query = sales_query.filter(sold_at__lt=until)
+    sales = list(sales_query.select_related(
         'product', 'seller', 'producer', 'establishment'))
     totals = {'revenue': 0, 'product_cost': 0, 'sales_fees': 0, 'sellers': 0, 'producers': 0,
               'cash_reserve': 0, 'partners': 0, 'units': 0}

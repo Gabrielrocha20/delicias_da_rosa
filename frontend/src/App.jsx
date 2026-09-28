@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, PackageOpen, CakeSlice, UsersRound, CookingPot, ShoppingBag, LogOut, Menu, X, ChevronDown, Building2, KeyRound, Scale } from 'lucide-react';
+import { LayoutDashboard, PackageOpen, CakeSlice, UsersRound, CookingPot, ShoppingBag, LogOut, Menu, X, ChevronDown, Building2, KeyRound, Scale, Wallet } from 'lucide-react';
 import { clearSession, getStoredUser, getToken } from './lib/api';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -12,6 +12,7 @@ import Sales from './pages/Sales';
 import Accesses from './pages/Accesses';
 import Establishments from './pages/Establishments';
 import Transparency from './pages/Transparency';
+import CashFlow from './pages/CashFlow';
 
 const nav = [
   ['/', 'Minha visão', LayoutDashboard, ['admin','seller','producer']],
@@ -20,6 +21,7 @@ const nav = [
   ['/equipe', 'Equipe', UsersRound, ['admin']],
   ['/acessos', 'Acessos', KeyRound, ['admin']],
   ['/parceiros', 'Parceiros', Building2, ['admin']],
+  ['/caixa', 'Entradas e saídas', Wallet, ['admin']],
   ['/producao', 'Produção', CookingPot, ['admin','producer']],
   ['/vendas', 'Vendas', ShoppingBag, ['admin','seller']],
   ['/verdade', 'Página da Verdade', Scale, ['admin','seller','producer']],
@@ -84,6 +86,7 @@ export default function App() {
       <Route path="equipe" element={<RoleRoute roles={['admin']}><People /></RoleRoute>} />
       <Route path="acessos" element={<RoleRoute roles={['admin']}><Accesses /></RoleRoute>} />
       <Route path="parceiros" element={<RoleRoute roles={['admin']}><Establishments /></RoleRoute>} />
+      <Route path="caixa" element={<RoleRoute roles={['admin']}><CashFlow /></RoleRoute>} />
       <Route path="producao" element={<RoleRoute roles={['admin','producer']}><Production /></RoleRoute>} />
       <Route path="vendas" element={<RoleRoute roles={['admin','seller']}><Sales /></RoleRoute>} />
       <Route path="verdade" element={<Transparency />} />

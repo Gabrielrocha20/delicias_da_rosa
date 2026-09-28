@@ -18,6 +18,10 @@
 @media(max-width:1180px){.partner-grid{grid-template-columns:1fr 1fr}.truth-main{grid-template-columns:1fr}.truth-donut{max-width:700px}}
 @media(max-width:700px){.partner-grid,.truth-lists{grid-template-columns:1fr}.truth-hero{grid-template-columns:1fr;padding:21px}.truth-hero h2{font-size:20px}.truth-donut{flex-direction:column}.truth-donut .recharts-responsive-container{width:100%!important}.truth-legend{width:100%}.partner-product-row{grid-template-columns:1fr 32px}.partner-product-row .field:first-child{grid-column:1/-1}}
 
+/* Date range filters and cash ledger */
+.analysis-filters{display:flex;flex-direction:column;align-items:flex-end;gap:8px}.date-filter{display:flex;align-items:center;gap:8px}.date-filter label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px;font-weight:700}.date-filter input{min-width:128px;border:1px solid #ddcfc3;background:#fff;border-radius:9px;padding:7px 8px;color:var(--ink);font-size:11px}.sales-date-filter{justify-content:flex-end;margin:-5px 0 15px}.sales-date-filter .btn{padding:7px 10px;font-size:10px}.cash-summary{flex-wrap:wrap}.cash-summary>div{flex:1;min-width:180px}.cash-summary>div:first-child strong{font-size:22px}.cash-summary>div:nth-child(2) svg,.cash-summary>div:nth-child(3) svg{color:#94bd8e}.cash-summary>div:nth-child(4) svg{color:#e59b83}.cash-summary .panel-kicker{display:block}.cash-summary h2{font-family:'Fraunces',serif;font-size:16px;margin:3px 0 0}
+@media(max-width:700px){.analysis-filters{align-items:stretch;width:100%}.analysis-filters .range-picker{width:100%}.date-filter{justify-content:space-between}.date-filter input{min-width:0;width:132px}.sales-date-filter{align-items:flex-start;justify-content:flex-start;flex-wrap:wrap}.cash-summary>div{min-width:50%;}.cash-summary>div:first-child{grid-column:1/-1}}
+
 /* Navegação de app no celular */
 .mobile-tabbar{display:none}
 @media(max-width:900px){
