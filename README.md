@@ -61,6 +61,24 @@ Detalhes que já ficam prontos:
 - Logs com rotação (10 MB × 5 arquivos por serviço).
 - Depois que o HTTPS estiver estável, ligue `DJANGO_HSTS_SECONDS=31536000`.
 
+## Painel web no Netlify (opcional)
+
+O painel é só arquivos estáticos, então pode ficar no Netlify enquanto a API fica no PythonAnywhere
+(ou continuar sendo servido pelo próprio Django, sem Netlify).
+
+1. Netlify → **Add new site → Import from Git** → escolha o repositório.
+2. Em **Base directory** coloque `frontend`. O resto (comando, pasta `dist`, Node 22, endereço da API e rota
+   das páginas) já vem de `frontend/netlify.toml`.
+3. Depois do deploy, copie o endereço do site (ex.: `https://doces-mivi.netlify.app`) e, no PythonAnywhere,
+   acrescente-o em `backend/.env`:
+   ```
+   CORS_ALLOWED_ORIGINS=https://yroshiii.pythonanywhere.com,https://doces-mivi.netlify.app
+   FRONTEND_URL=https://doces-mivi.netlify.app
+   ```
+   Clique em **Reload** na aba Web. Sem isso o navegador bloqueia as chamadas à API (erro de CORS).
+
+Se trocar o endereço da API, mude `VITE_API_URL` em `frontend/netlify.toml` e faça um novo deploy.
+
 ## App de celular
 
 O app usa a **mesma API** do painel e já vem com o endereço do servidor (`yroshiii.pythonanywhere.com`): o login pede só e-mail e senha. O endereço fica em `mobile/src/config.js`; para outro servidor (ex.: testes no seu computador), defina `EXPO_PUBLIC_API_URL` antes de compilar ou de rodar `npx expo start`.
