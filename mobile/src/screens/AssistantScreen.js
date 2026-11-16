@@ -72,7 +72,7 @@ export default function AssistantScreen({ navigation, user }) {
     <Notice tone="error">{error}</Notice>
     {!data ? <Loading /> : <>
       <Card title="O que fazer agora" padded={false}><InsightList items={data.insights} onAction={route => openRoute(navigation, route, user.role)} /></Card>
-      <Card title="Pergunte">{data.ai_enabled ? <Chat role={user.role} /> : <Text size={14} color={colors.muted}>O chat com IA está desligado no servidor (falta ANTHROPIC_API_KEY). Os alertas acima funcionam sem ele.</Text>}</Card>
+      <Card title="Pergunte">{data.ai_enabled ? <Chat role={user.role} /> : <Text size={14} color={colors.muted}>O chat com IA está desligado: falta cadastrar uma chave do Ollama em Configurações, no painel web. Os alertas acima funcionam sem ele.</Text>}</Card>
       {user.role === 'admin' && <Card title="Lista de compras" subtitle={shopping.length ? `${shopping.length} itens · ${currency(total)}` : 'Para duas semanas e os lotes agendados'} padded={false}
         right={shopping.length ? <Button small title="Enviar" icon="share-social-outline" onPress={share} /> : null}>
         {shopping.length ? shopping.map(row => <ListRow key={row.ingredient_id} title={row.name} subtitle={`${row.packs} × ${quantity(row.pack_size, row.unit)}${row.supplier ? ` · ${row.supplier}` : ''}`}

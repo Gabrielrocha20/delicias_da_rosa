@@ -20,13 +20,14 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from .inventory import ingredient_context, lock_ingredients, record_movement
-from .models import CashMovement, Establishment, Ingredient, Person, Product, ProductionBatch, ProductionConsumption, Sale, StockMovement, User
+from .models import AssistantApiKey, AssistantConfig, CashMovement, Establishment, Ingredient, Person, Product, ProductionBatch, ProductionConsumption, Sale, StockMovement, User
 from .permissions import IsAdminOrProducer, IsAdminOrSeller, IsAdminRole
 from .serializers import (
     EstablishmentSerializer,
     CashMovementSerializer,
     EstablishmentOperationalSerializer,
     AdjustInputSerializer,
+    AssistantKeySerializer,
     IngredientSerializer,
     PersonSerializer,
     PurchaseInputSerializer,
@@ -37,7 +38,7 @@ from .serializers import (
     SaleSerializer,
     UserSerializer,
 )
-from . import assistant
+from . import assistant, ollama
 from .services import dashboard_data, transparency_data
 
 
@@ -441,3 +442,55 @@ class AssistantAskView(APIView):
         except assistant.AssistantUnavailable as error:
             return Response({'message': str(error)}, status=503)
         return Response({'answer': answer})
+
+
+class AssistantKeyViewSet(ModelViewSet):
+    """Chaves do Ollama Cloud (somente administrador). O segredo nunca sai daqui."""
+
+    queryset = AssistantApiKey.objects.all()
+    serializer_class = AssistantKeySerializer
+    permission_classes = [IsAdminRole]
+
+    @action(detail=True, methods=['post'])
+    def test(self, request, pk=None):
+        key = self.get_object()
+        try:
+            ok, message = ollama.test_key(key)
+        except ollama.OllamaError as error:
+            ok, message = False, str(error)
+        key.refresh_from_db()
+        return Response({'ok': ok, 'message': message, 'key': self.get_serializer(key).data})
+
+    @action(detail=True, methods=['post'])
+    def reset(self, request, pk=None):
+        key = self.get_object()
+        key.exhausted_until = None
+        key.last_error = ''
+        key.save(update_fields=['exhausted_until', 'last_error'])
+        return Response(self.get_serializer(key).data)
+
+
+class AssistantSettingsView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        return Response({'model': AssistantConfig.current().model, 'ai_enabled': assistant.ai_enabled()})
+
+    def put(self, request):
+        model = str(request.data.get('model', '')).strip()
+        if not model or len(model) > 120 or not all(char.isalnum() or char in '._:/-' for char in model):
+            return Response({'message': 'Informe um nome de modelo válido, como gemma4:31b.'}, status=400)
+        config = AssistantConfig.current()
+        config.model = model
+        config.save(update_fields=['model'])
+        return Response({'model': config.model, 'ai_enabled': assistant.ai_enabled()})
+
+
+class AssistantModelsView(APIView):
+    permission_classes = [IsAdminRole]
+
+    def get(self, request):
+        try:
+            return Response({'models': ollama.list_models()})
+        except ollama.OllamaError as error:
+            return Response({'models': [], 'message': str(error)})

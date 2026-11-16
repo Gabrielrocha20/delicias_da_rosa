@@ -63,7 +63,7 @@ Detalhes que já ficam prontos:
 
 ## App de celular
 
-O app usa a **mesma API**: no primeiro login, informe o endereço do painel (ex.: `painel.seudominio.com.br`).
+O app usa a **mesma API** do painel e já vem com o endereço do servidor (`yroshiii.pythonanywhere.com`): o login pede só e-mail e senha. O endereço fica em `mobile/src/config.js`; para outro servidor (ex.: testes no seu computador), defina `EXPO_PUBLIC_API_URL` antes de compilar ou de rodar `npx expo start`.
 
 **Testar agora com o Expo Go** (Android/iPhone, app gratuito na loja):
 
@@ -74,7 +74,7 @@ npx expo start          # leia o QR code com o Expo Go
 ```
 
 Para testar contra o backend do seu computador, rode `npm run start` na raiz (Django em `0.0.0.0:3333`),
-adicione o IP do PC em `DJANGO_ALLOWED_HOSTS` e use `http://IP-DO-PC:3333` como servidor no app.
+adicione o IP do PC em `DJANGO_ALLOWED_HOSTS` e rode o app com `EXPO_PUBLIC_API_URL=http://IP-DO-PC:3333`.
 
 **Gerar o APK** (build na nuvem do Expo, conta gratuita em expo.dev):
 
@@ -93,7 +93,7 @@ produtor — os próprios lotes. Cadastros de produtos, receitas, equipe e acess
 
 ## Assistente
 
-`GET /api/assistant/insights` calcula, sem custo e sem internet:
+`GET /api/assistant/insights` calcula, sem custo e sem internet (só o chat depende do Ollama):
 
 - insumos em falta, abaixo do mínimo, sem mínimo definido ou insuficientes para os lotes agendados;
 - **lista de compras** em embalagens inteiras para 14 dias + lotes agendados (copiar ou mandar no WhatsApp);
@@ -101,9 +101,24 @@ produtor — os próprios lotes. Cadastros de produtos, receitas, equipe e acess
 - produtos com margem baixa ou prejuízo, com o preço que daria 25% de margem;
 - o que produzir pelo ritmo de venda, produtos parados e vendas a receber.
 
-O **chat** (`POST /api/assistant/ask`) é opcional: defina `ANTHROPIC_API_KEY` no `.env` e ele responde perguntas
-livres com os números da fábrica, usando o modelo `claude-opus-5-5` (troque por `ASSISTANT_MODEL`).
-Sem a chave, o resto funciona igual.
+O **chat** (`POST /api/assistant/ask`) é opcional e usa modelos do **Ollama Cloud**. As chaves são cadastradas
+dentro do sistema, em **Configurações** (somente administrador), não em variável de ambiente:
+
+1. Em ollama.com, abra Settings → Keys (`ollama.com/settings/keys`) e crie uma chave. Cada conta gratuita tem a
+   sua cota; para somar limite, crie chaves em várias contas.
+2. No painel, vá em **Configurações → Nova chave** e cole. Use **Testar** para conferir.
+3. Escolha o modelo na mesma tela (a lista vem do próprio Ollama Cloud; o padrão é `gemma4:31b`).
+
+**Rodízio:** as chaves são usadas na ordem da lista. Quando uma atinge o limite (resposta 429), ela descansa por
+1 hora (ou o tempo que o Ollama indicar) e a próxima assume na mesma pergunta; passado o prazo ela volta sozinha.
+Chave recusada (401) é marcada como "Recusada"; erro de servidor do Ollama não penaliza a chave. Se todas
+estiverem no limite, o chat avisa a que horas a primeira volta. Sem nenhuma chave, só o chat fica desligado:
+alertas e lista de compras continuam funcionando.
+
+As chaves ficam **criptografadas** no banco, derivadas da `DJANGO_SECRET_KEY`, e a API nunca as devolve (só
+`••••` e os 4 últimos caracteres). Se a `DJANGO_SECRET_KEY` for trocada, as chaves salvas ficam ilegíveis e
+aparecem como "Recusada": cadastre-as de novo. Ajustes opcionais: `OLLAMA_COOLDOWN_MINUTES` (padrão 60),
+`OLLAMA_TIMEOUT_SECONDS` (padrão 90). No PythonAnywhere gratuito, `ollama.com` já está na lista liberada.
 
 ## Regras de cálculo
 

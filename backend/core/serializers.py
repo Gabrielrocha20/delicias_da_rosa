@@ -3,8 +3,9 @@ from django.db.models import Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from . import vault
 from .inventory import ingredient_context, stock_status, suggested_purchase
-from .models import CashMovement, Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, StockMovement, User
+from .models import AssistantApiKey, CashMovement, Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, StockMovement, User
 
 
 class CashMovementSerializer(serializers.ModelSerializer):
@@ -414,3 +415,54 @@ class SaleSerializer(serializers.ModelSerializer):
         else:
             kwargs['partner_commission'] = 0
         return super().save(**kwargs)
+
+
+class AssistantKeySerializer(serializers.ModelSerializer):
+    key = serializers.CharField(write_only=True, required=False, trim_whitespace=True, min_length=16, max_length=400)
+    masked = serializers.SerializerMethodField()
+    status = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = AssistantApiKey
+        fields = ['id', 'name', 'key', 'masked', 'status', 'active', 'exhausted_until', 'last_used_at', 'last_error',
+                  'requests_count', 'created_at']
+        read_only_fields = ['exhausted_until', 'last_used_at', 'last_error', 'requests_count', 'created_at']
+
+    def get_masked(self, obj):
+        return f'••••{obj.last4}' if obj.last4 else '••••'
+
+    def validate_key(self, value):
+        if any(char.isspace() for char in value):
+            raise serializers.ValidationError('A chave não pode ter espaços. Copie e cole só o texto da chave.')
+        for existing in AssistantApiKey.objects.exclude(pk=getattr(self.instance, 'pk', None)):
+            if vault.decrypt(existing.secret) == value:
+                raise serializers.ValidationError(f'Esta chave já está cadastrada como “{existing.name}”.')
+        return value
+
+    def validate(self, attrs):
+        if not self.instance and 'key' not in attrs:
+            raise serializers.ValidationError({'key': 'Cole a chave de API do Ollama.'})
+        return attrs
+
+    def _apply_key(self, instance, key):
+        instance.secret = vault.encrypt(key)
+        instance.last4 = key[-4:]
+        instance.invalid = False
+        instance.exhausted_until = None
+        instance.last_error = ''
+
+    def create(self, validated_data):
+        key = validated_data.pop('key')
+        instance = AssistantApiKey(**validated_data)
+        self._apply_key(instance, key)
+        instance.save()
+        return instance
+
+    def update(self, instance, validated_data):
+        key = validated_data.pop('key', None)
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        if key:
+            self._apply_key(instance, key)
+        instance.save()
+        return instance

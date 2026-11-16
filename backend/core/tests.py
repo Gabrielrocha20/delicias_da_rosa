@@ -1,9 +1,14 @@
-from django.test import TestCase
+from datetime import timedelta
+from unittest import mock
+
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from . import vault
 from .models import (
+    AssistantApiKey,
     CashMovement,
     Establishment,
     EstablishmentProduct,
@@ -431,11 +436,11 @@ class AssistantTests(APITestCase):
             self.assertEqual(data['shopping_list'], [])
             self.assertEqual(data['producible'], [])
 
-    def test_ask_without_api_key_returns_clear_error(self):
+    def test_ask_without_ollama_key_returns_clear_error(self):
         self.auth(self.admin)
         response = self.client.post('/api/assistant/ask', {'question': 'O que devo produzir?'}, format='json')
         self.assertEqual(response.status_code, 503)
-        self.assertIn('ANTHROPIC_API_KEY', response.json()['message'])
+        self.assertIn('Nenhuma chave', response.json()['message'])
 
 
 class AccountTests(APITestCase):
@@ -491,3 +496,184 @@ class AssistantSetupAndPartialUpdateTests(APITestCase):
         self.assertEqual(sale.partner_commission, 20)
         self.assertEqual(sale.producer, producer)
         self.assertEqual(sale.establishment, place)
+
+
+class OllamaKeyRotationTests(APITestCase):
+    KEY_A = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.AAAAAAAAAAAAAAAA'
+    KEY_B = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.BBBBBBBBBBBBBBBB'
+    KEY_C = 'cccccccccccccccccccccccccccccccc.CCCCCCCCCCCCCCCC'
+
+    def setUp(self):
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        self.seller = User.objects.get(email='vendedor@docesmivi.com.br')
+        self.auth(self.admin)
+
+    def auth(self, user):
+        token, _ = Token.objects.get_or_create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.key}')
+
+    def add(self, name, key):
+        response = self.client.post('/api/assistant/keys', {'name': name, 'key': key}, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        return response.json()
+
+    def fake(self, behaviour):
+        """Troca a chamada de rede: behaviour(chave) -> (status, payload, headers)."""
+        calls = []
+
+        def call(method, path, *, key=None, body=None, timeout=0):
+            calls.append(key)
+            return behaviour(key)
+
+        return mock.patch('core.ollama._call', side_effect=call), calls
+
+    def ok(self, text='Compre leite condensado.'):
+        return 200, {'message': {'role': 'assistant', 'content': text}}, {}
+
+    def test_key_is_encrypted_masked_and_never_returned(self):
+        created = self.add('Conta 1', self.KEY_A)
+        self.assertNotIn('key', created)
+        self.assertEqual(created['masked'], '••••AAAA')
+        self.assertNotIn(self.KEY_A, str(self.client.get('/api/assistant/keys').json()))
+        stored = AssistantApiKey.objects.get(pk=created['id'])
+        self.assertNotIn('AAAAAAAA', stored.secret)
+        self.assertEqual(vault.decrypt(stored.secret), self.KEY_A)
+
+    def test_duplicate_and_short_keys_are_rejected(self):
+        self.add('Conta 1', self.KEY_A)
+        duplicate = self.client.post('/api/assistant/keys', {'name': 'Repetida', 'key': self.KEY_A}, format='json')
+        self.assertEqual(duplicate.status_code, 400)
+        self.assertIn('já está cadastrada', duplicate.json()['message'])
+        short = self.client.post('/api/assistant/keys', {'name': 'Curta', 'key': 'abc'}, format='json')
+        self.assertEqual(short.status_code, 400)
+
+    def test_only_admin_manages_keys_and_settings(self):
+        self.auth(self.seller)
+        self.assertEqual(self.client.get('/api/assistant/keys').status_code, 403)
+        self.assertEqual(self.client.post('/api/assistant/keys', {'name': 'x', 'key': self.KEY_A}, format='json').status_code, 403)
+        self.assertEqual(self.client.put('/api/assistant/settings', {'model': 'gemma4:31b'}, format='json').status_code, 403)
+
+    def test_uses_first_key_until_it_hits_the_limit_then_switches(self):
+        first, second = self.add('Conta 1', self.KEY_A), self.add('Conta 2', self.KEY_B)
+        patcher, calls = self.fake(lambda key: self.ok() if key == self.KEY_A else self.ok('Segunda chave.'))
+        with patcher:
+            answer = self.client.post('/api/assistant/ask', {'question': 'O que comprar?'}, format='json').json()['answer']
+            self.assertEqual(answer, 'Compre leite condensado.')
+            self.assertEqual(calls, [self.KEY_A])
+
+        patcher, calls = self.fake(lambda key: (429, {'error': 'weekly usage limit reached'}, {}) if key == self.KEY_A else self.ok('Segunda chave.'))
+        with patcher:
+            answer = self.client.post('/api/assistant/ask', {'question': 'E agora?'}, format='json').json()['answer']
+        self.assertEqual(answer, 'Segunda chave.')
+        self.assertEqual(calls, [self.KEY_A, self.KEY_B])
+        first_row = AssistantApiKey.objects.get(pk=first['id'])
+        self.assertEqual(first_row.status, 'exhausted')
+        self.assertIn('limit', first_row.last_error)
+
+        # Enquanto a primeira descansa, a segunda atende sozinha, sem nem tentar a primeira.
+        patcher, calls = self.fake(lambda key: self.ok('De novo a segunda.'))
+        with patcher:
+            self.client.post('/api/assistant/ask', {'question': 'Mais uma?'}, format='json')
+        self.assertEqual(calls, [self.KEY_B])
+        self.assertEqual(AssistantApiKey.objects.get(pk=second['id']).requests_count, 2)
+
+    def test_exhausted_key_comes_back_after_the_cooldown(self):
+        created = self.add('Conta 1', self.KEY_A)
+        AssistantApiKey.objects.filter(pk=created['id']).update(exhausted_until=timezone.now() - timedelta(minutes=1))
+        patcher, calls = self.fake(lambda key: self.ok())
+        with patcher:
+            self.assertEqual(self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json').status_code, 200)
+        self.assertEqual(calls, [self.KEY_A])
+        self.assertEqual(AssistantApiKey.objects.get(pk=created['id']).status, 'ok')
+
+    def test_retry_after_header_sets_the_cooldown(self):
+        created = self.add('Conta 1', self.KEY_A)
+        patcher, _ = self.fake(lambda key: (429, {'error': 'rate limited'}, {'Retry-After': '7200'}))
+        with patcher:
+            self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        until = AssistantApiKey.objects.get(pk=created['id']).exhausted_until
+        self.assertAlmostEqual((until - timezone.now()).total_seconds(), 7200, delta=30)
+
+    def test_rejected_key_is_marked_invalid_and_skipped(self):
+        bad, good = self.add('Revogada', self.KEY_A), self.add('Boa', self.KEY_B)
+        patcher, calls = self.fake(lambda key: (401, {'error': 'Unauthorized'}, {}) if key == self.KEY_A else self.ok())
+        with patcher:
+            self.assertEqual(self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json').status_code, 200)
+        self.assertEqual(AssistantApiKey.objects.get(pk=bad['id']).status, 'invalid')
+        patcher, calls = self.fake(lambda key: self.ok())
+        with patcher:
+            self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        self.assertEqual(calls, [self.KEY_B])
+
+    def test_all_keys_exhausted_says_when_the_first_returns(self):
+        self.add('Conta 1', self.KEY_A)
+        self.add('Conta 2', self.KEY_B)
+        patcher, calls = self.fake(lambda key: (429, {'error': 'limit'}, {}))
+        with patcher:
+            response = self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(calls, [self.KEY_A, self.KEY_B])
+        self.assertIn('atingiram o limite', response.json()['message'])
+        self.assertIn(':', response.json()['message'])
+
+    def test_server_error_moves_to_next_key_without_penalizing_the_first(self):
+        first = self.add('Conta 1', self.KEY_A)
+        self.add('Conta 2', self.KEY_B)
+        patcher, calls = self.fake(lambda key: (503, {'error': 'overloaded'}, {}) if key == self.KEY_A else self.ok())
+        with patcher:
+            self.assertEqual(self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json').status_code, 200)
+        self.assertEqual(AssistantApiKey.objects.get(pk=first['id']).status, 'ok')
+
+    def test_unknown_model_does_not_burn_through_the_keys(self):
+        self.add('Conta 1', self.KEY_A)
+        self.add('Conta 2', self.KEY_B)
+        patcher, calls = self.fake(lambda key: (404, {'error': 'model not found'}, {}))
+        with patcher:
+            response = self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(len(calls), 1)
+        self.assertIn('não encontrado', response.json()['message'])
+        self.assertEqual({row.status for row in AssistantApiKey.objects.all()}, {'ok'})
+
+    def test_no_keys_returns_a_clear_message_and_ai_is_off(self):
+        response = self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('Nenhuma chave', response.json()['message'])
+        self.assertFalse(self.client.get('/api/assistant/insights').json()['ai_enabled'])
+        self.add('Conta 1', self.KEY_A)
+        self.assertTrue(self.client.get('/api/assistant/insights').json()['ai_enabled'])
+
+    def test_unreadable_key_after_secret_change_is_flagged_not_crashing(self):
+        created = self.add('Conta 1', self.KEY_A)
+        with override_settings(SECRET_KEY='outra-chave-secreta-totalmente-diferente-0123456789'):
+            patcher, calls = self.fake(lambda key: self.ok())
+            with patcher:
+                response = self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(calls, [])
+        self.assertEqual(AssistantApiKey.objects.get(pk=created['id']).status, 'invalid')
+
+    def test_test_endpoint_reset_and_model_setting(self):
+        created = self.add('Conta 1', self.KEY_A)
+        patcher, _ = self.fake(lambda key: self.ok('OK'))
+        with patcher:
+            result = self.client.post(f"/api/assistant/keys/{created['id']}/test").json()
+        self.assertTrue(result['ok'])
+        AssistantApiKey.objects.filter(pk=created['id']).update(exhausted_until=timezone.now() + timedelta(hours=1))
+        reset = self.client.post(f"/api/assistant/keys/{created['id']}/reset").json()
+        self.assertEqual(reset['status'], 'ok')
+        self.assertEqual(self.client.put('/api/assistant/settings', {'model': 'gpt-oss:20b'}, format='json').json()['model'], 'gpt-oss:20b')
+        self.assertEqual(self.client.put('/api/assistant/settings', {'model': 'a b; rm'}, format='json').status_code, 400)
+        patcher, _ = self.fake(lambda key: self.ok())
+        with patcher, mock.patch('core.ollama._call') as call:
+            call.return_value = self.ok()
+            self.client.post('/api/assistant/ask', {'question': 'Oi'}, format='json')
+            self.assertEqual(call.call_args.kwargs['body']['model'], 'gpt-oss:20b')
+
+    def test_replacing_the_key_clears_the_invalid_flag(self):
+        created = self.add('Conta 1', self.KEY_A)
+        AssistantApiKey.objects.filter(pk=created['id']).update(invalid=True, last_error='Chave recusada')
+        response = self.client.patch(f"/api/assistant/keys/{created['id']}", {'key': self.KEY_C}, format='json')
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertEqual(response.json()['status'], 'ok')
+        self.assertEqual(response.json()['masked'], '••••CCCC')

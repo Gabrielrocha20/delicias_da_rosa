@@ -193,3 +193,46 @@ class StockMovement(models.Model):
 
     class Meta:
         ordering = ['-occurred_at', '-id']
+
+
+class AssistantConfig(models.Model):
+    """Configuração única do assistente (linha de id 1)."""
+
+    model = models.CharField(max_length=120, default='gemma4:31b')
+
+    @classmethod
+    def current(cls):
+        config, _ = cls.objects.get_or_create(pk=1)
+        return config
+
+
+class AssistantApiKey(models.Model):
+    """Chave do Ollama Cloud. O segredo fica criptografado; a API nunca o devolve."""
+
+    name = models.CharField(max_length=120)
+    secret = models.TextField()
+    last4 = models.CharField(max_length=8, blank=True)
+    active = models.BooleanField(default=True)
+    invalid = models.BooleanField(default=False)
+    exhausted_until = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=255, blank=True)
+    requests_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    @property
+    def status(self):
+        from django.utils import timezone
+        if self.invalid:
+            return 'invalid'
+        if not self.active:
+            return 'inactive'
+        if self.exhausted_until and self.exhausted_until > timezone.now():
+            return 'exhausted'
+        return 'ok'
+
+    def __str__(self):
+        return self.name

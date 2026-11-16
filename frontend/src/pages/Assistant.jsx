@@ -48,7 +48,9 @@ function Chat({ enabled, role }) {
   }
 
   if (!enabled) {
-    return <Notice tone="info">O chat com IA está desligado. Para ligar, defina <b>ANTHROPIC_API_KEY</b> no servidor. Os alertas e a lista de compras funcionam sem ele.</Notice>;
+    return <Notice tone="info">{role === 'admin'
+      ? <span>O chat com IA está desligado. <Link to="/configuracoes"><b>Cadastre uma chave do Ollama em Configurações</b></Link> para ligar. Os alertas e a lista de compras funcionam sem ele.</span>
+      : <span>O chat com IA está desligado. Peça à administração para cadastrar uma chave em Configurações.</span>}</Notice>;
   }
   return <div className="chat">
     {log.length > 0 && <div className="chat-log">{log.map((row, index) => <div key={index} className={`bubble ${row.role}`}>{row.content}</div>)}{busy && <div className="bubble assistant muted">Pensando nos seus números…</div>}<span ref={end} /></div>}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { Building2, CakeSlice, ChevronRight, CookingPot, KeyRound, LayoutDashboard, LogOut, Menu, PackageOpen, Scale, ShoppingBag, Sparkles, UsersRound, Wallet } from 'lucide-react';
+import { Building2, CakeSlice, ChevronRight, CookingPot, KeyRound, LayoutDashboard, LogOut, Menu, PackageOpen, Scale, Settings as SettingsIcon, ShoppingBag, Sparkles, UsersRound, Wallet } from 'lucide-react';
 import { getStoredUser, getToken, logout } from './lib/api';
 import { Avatar, Brand, Toasts } from './components/UI';
 import Login from './pages/Login';
@@ -15,6 +15,7 @@ import Establishments from './pages/Establishments';
 import Transparency from './pages/Transparency';
 import CashFlow from './pages/CashFlow';
 import Assistant from './pages/Assistant';
+import Settings from './pages/Settings';
 
 const ALL = ['admin', 'seller', 'producer'];
 export const navGroups = [
@@ -34,6 +35,9 @@ export const navGroups = [
   ['Dinheiro', [
     ['/caixa', 'Entradas e saídas', Wallet, ['admin']],
     ['/verdade', 'Página da Verdade', Scale, ALL],
+  ]],
+  ['Sistema', [
+    ['/configuracoes', 'Configurações', SettingsIcon, ['admin']],
   ]],
 ];
 const roleNames = { admin: 'Administrador', seller: 'Vendedor', producer: 'Produtor' };
@@ -108,6 +112,7 @@ export default function App() {
       <Route path="caixa" element={<RoleRoute roles={['admin']}><CashFlow /></RoleRoute>} />
       <Route path="producao" element={<RoleRoute roles={['admin', 'producer']}><Production /></RoleRoute>} />
       <Route path="vendas" element={<RoleRoute roles={['admin', 'seller']}><Sales /></RoleRoute>} />
+      <Route path="configuracoes" element={<RoleRoute roles={['admin']}><Settings /></RoleRoute>} />
       <Route path="verdade" element={<Transparency />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />

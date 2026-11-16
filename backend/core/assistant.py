@@ -2,13 +2,12 @@
 
 `insights(user)` lê os cadastros e devolve recomendações práticas calculadas por regras
 (sempre disponível, sem custo). `ask(user, question, history)` responde perguntas livres
-com o Claude quando ANTHROPIC_API_KEY estiver configurada no servidor.
+com modelos do Ollama Cloud, usando as chaves cadastradas em Configurações (com rodízio).
 """
 
 import json
 import logging
 import math
-import os
 from collections import defaultdict
 from datetime import timedelta
 
@@ -17,7 +16,8 @@ from django.utils import timezone
 
 from .inventory import (COVERAGE_ALERT_DAYS, daily_usage_map, planned_requirements, stock_status,
                         suggested_purchase)
-from .models import CashMovement, Ingredient, Product, ProductionBatch, Sale
+from . import ollama
+from .models import AssistantApiKey, CashMovement, Ingredient, Product, ProductionBatch, Sale
 
 logger = logging.getLogger(__name__)
 
@@ -305,7 +305,8 @@ Não invente clientes, vendas ou números."""
 
 
 def ai_enabled():
-    return bool(os.getenv('ANTHROPIC_API_KEY', '').strip())
+    """O chat fica disponível quando há ao menos uma chave do Ollama ativa e não recusada."""
+    return AssistantApiKey.objects.filter(active=True, invalid=False).exists()
 
 
 def _context_for(user):
@@ -322,40 +323,18 @@ class AssistantUnavailable(Exception):
 
 
 def ask(user, question, history=None):
-    if not ai_enabled():
-        raise AssistantUnavailable('O chat com IA não está configurado no servidor (defina ANTHROPIC_API_KEY).')
-    import anthropic
-
     context = json.dumps(_context_for(user), ensure_ascii=False, default=str)
-    messages = []
+    messages = [{'role': 'system', 'content': SYSTEM_PROMPT}]
     for turn in (history or [])[-8:]:
         role = turn.get('role')
         text = str(turn.get('content', ''))[:4000]
         if role in ('user', 'assistant') and text:
             messages.append({'role': role, 'content': text})
-    messages.append({'role': 'user', 'content': f'<dados_do_negocio>\n{context}\n</dados_do_negocio>\n\nPergunta: {question}'})
-    while messages and messages[0]['role'] != 'user':
-        messages.pop(0)
-
-    client = anthropic.Anthropic(timeout=60.0)
+    while len(messages) > 1 and messages[1]['role'] != 'user':
+        messages.pop(1)
+    prompt = f'<dados_do_negocio>\n{context}\n</dados_do_negocio>\n\nPergunta: {question}'
+    messages.append({'role': 'user', 'content': prompt})
     try:
-        response = client.beta.messages.create(
-            model=os.getenv('ASSISTANT_MODEL', 'claude-opus-5-5'),
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            output_config={'effort': os.getenv('ASSISTANT_EFFORT', 'low')},
-            betas=['server-side-fallback-2026-07-01'],
-            fallbacks='default',
-            messages=messages,
-        )
-    except anthropic.RateLimitError as error:
-        raise AssistantUnavailable('Muitas perguntas em pouco tempo. Tente de novo em instantes.') from error
-    except anthropic.APIStatusError as error:
-        logger.warning('Falha na API do Claude: %s', error.status_code)
-        raise AssistantUnavailable('A IA não respondeu agora. Os alertas automáticos continuam funcionando.') from error
-    except anthropic.APIConnectionError as error:
-        raise AssistantUnavailable('Sem conexão com o serviço de IA.') from error
-
-    if response.stop_reason == 'refusal':
-        return 'Não consigo ajudar com essa pergunta. Tente perguntar sobre estoque, produção, vendas ou preços.'
-    return ''.join(block.text for block in response.content if block.type == 'text').strip()
+        return ollama.chat(messages)
+    except ollama.OllamaError as error:
+        raise AssistantUnavailable(str(error)) from error

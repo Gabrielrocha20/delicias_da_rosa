@@ -2,6 +2,9 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 from .views import (
     AssistantAskView,
+    AssistantKeyViewSet,
+    AssistantModelsView,
+    AssistantSettingsView,
     AssistantInsightsView,
     DashboardView,
     EstablishmentViewSet,
@@ -28,6 +31,7 @@ router.register('products', ProductViewSet, basename='products')
 router.register('establishments', EstablishmentViewSet, basename='establishments')
 router.register('production', ProductionViewSet, basename='production')
 router.register('sales', SaleViewSet, basename='sales')
+router.register('assistant/keys', AssistantKeyViewSet, basename='assistant-keys')
 router.register('cash-movements', CashMovementViewSet, basename='cash-movements')
 
 urlpatterns = [
@@ -38,6 +42,8 @@ urlpatterns = [
     path('auth/password', change_password),
     path('assistant/insights', AssistantInsightsView.as_view()),
     path('assistant/ask', AssistantAskView.as_view()),
+    path('assistant/settings', AssistantSettingsView.as_view()),
+    path('assistant/models', AssistantModelsView.as_view()),
     path('dashboard', DashboardView.as_view()),
     path('transparency', TransparencyView.as_view()),
 ] + router.urls

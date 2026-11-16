@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert, Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { api, changePassword, getSession } from '../api';
+import { api, changePassword } from '../api';
+import { SERVER_HOST } from '../config';
 import { currency, dateShort, dayIso, number, parseDecimal, percent } from '../format';
 import { colors } from '../theme';
 import { Button, Card, Empty, Field, Input, Kpis, ListRow, Loading, Notice, Screen, Segmented, Sheet, Text, useLoader, useToast } from '../ui';
@@ -20,7 +21,6 @@ function MenuRow({ icon, title, subtitle, onPress, danger }) {
 }
 
 export function MoreScreen({ navigation, user, onLogout }) {
-  const server = getSession().server.replace(/^https?:\/\//, '').replace(/\/api$/, '');
   return <Screen title="Mais" subtitle={`${user.name} · ${ROLE[user.role]}`}>
     <Card padded={false}>
       {user.role === 'admin' && <MenuRow icon="sparkles-outline" title="Assistente" subtitle="Alertas, lista de compras e perguntas" onPress={() => navigation.navigate('Assistente')} />}
@@ -31,7 +31,7 @@ export function MoreScreen({ navigation, user, onLogout }) {
     <Card padded={false}>
       <MenuRow icon="log-out-outline" title="Sair da conta" danger onPress={() => Alert.alert('Sair da conta?', '', [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sair', style: 'destructive', onPress: onLogout }])} />
     </Card>
-    <Text size={12} color={colors.muted}>Conectado a {server}. Cadastros de produtos, receitas, equipe e acessos ficam no painel web.</Text>
+    <Text size={12} color={colors.muted}>Conectado a {SERVER_HOST}. Cadastros de produtos, receitas, equipe e acessos ficam no painel web.</Text>
   </Screen>;
 }
 

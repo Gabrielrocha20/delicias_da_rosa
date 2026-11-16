@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +18,7 @@ vi.mock('./pages/Establishments', () => ({ default: () => <div>pagina-parceiros<
 vi.mock('./pages/Transparency', () => ({ default: () => <div>pagina-verdade</div> }));
 vi.mock('./pages/CashFlow', () => ({ default: () => <div>pagina-caixa</div> }));
 vi.mock('./pages/Assistant', () => ({ default: () => <div>pagina-assistente</div> }));
+vi.mock('./pages/Settings', () => ({ default: () => <div>pagina-configuracoes</div> }));
 vi.mock('./lib/api', async original => ({ ...(await original()), logout: vi.fn() }));
 
 
@@ -40,6 +41,15 @@ describe('protecoes de rota por cargo', () => {
     expect(await screen.findByText('pagina-dashboard')).toBeInTheDocument();
     expect(document.querySelector('a[href="/acessos"]')).not.toBeInTheDocument();
     expect(document.querySelector('a[href="/vendas"]')).toBeInTheDocument();
+  });
+
+  it('configuracoes (chaves de IA) e so do administrador', async () => {
+    renderAs('seller', '/configuracoes');
+    expect(await screen.findByText('pagina-dashboard')).toBeInTheDocument();
+    expect(document.querySelector('a[href="/configuracoes"]')).not.toBeInTheDocument();
+    cleanup();
+    renderAs('admin', '/configuracoes');
+    expect(await screen.findByText('pagina-configuracoes')).toBeInTheDocument();
   });
 
   it('produtor abre producao mas nao ve vendas', async () => {
