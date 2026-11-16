@@ -24,7 +24,7 @@ describe('sessao local', () => {
   });
 
   it('nao quebra quando os dados locais foram adulterados', () => {
-    localStorage.setItem('rosas_user', '{json-invalido');
+    localStorage.setItem('mivi_user', '{json-invalido');
     expect(getStoredUser()).toBeNull();
   });
 });

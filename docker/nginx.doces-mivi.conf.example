@@ -1,9 +1,16 @@
-# Salve como /etc/nginx/sites-available/rosas-candy e ajuste o server_name.
-# O Nginx encaminha o site para este upstream: http://127.0.0.1:8085
-# A API de diagnostico fica privada em http://127.0.0.1:8087.
+# Salve como /etc/nginx/sites-available/doces-mivi, ajuste o server_name e ative:
+#   sudo ln -s /etc/nginx/sites-available/doces-mivi /etc/nginx/sites-enabled/
+#   sudo nginx -t && sudo systemctl reload nginx
+#   sudo certbot --nginx -d painel.seudominio.com.br      # HTTPS gratuito
+#
+# O painel web e o app de celular usam o mesmo endereço:
+#   painel:  https://painel.seudominio.com.br
+#   API:     https://painel.seudominio.com.br/api   (é isso que o app pede no login)
 server {
     listen 80;
-    server_name painel.seudominio.com;
+    server_name painel.seudominio.com.br;
+
+    client_max_body_size 5m;
 
     location / {
         proxy_pass http://127.0.0.1:8085;
@@ -12,5 +19,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
     }
 }

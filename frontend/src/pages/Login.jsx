@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CakeSlice, Eye, EyeOff, ArrowRight, LoaderCircle, BarChart3, Sparkles } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { api, setSession } from '../lib/api';
-import { ErrorNotice } from '../components/UI';
+import { Brand, ErrorNotice } from '../components/UI';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -11,37 +11,36 @@ export default function Login() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  async function submit(e) {
-    e.preventDefault(); setLoading(true); setError('');
+  async function submit(event) {
+    event.preventDefault(); setLoading(true); setError('');
     try { const data = await api('/auth/login', { method: 'POST', body: form }); setSession(data); navigate('/'); }
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
 
-  return <main className="login-page">
-    <section className="login-showcase">
-      <div className="login-brand"><div className="brand-mark"><CakeSlice size={25} /></div><strong>Rosa’s Candy</strong></div>
-      <div className="showcase-copy">
-        <span className="eyebrow light"><Sparkles size={14} /> Gestão doce, números claros</span>
-        <h1>Seu negócio inteiro,<br /><em>em uma só receita.</em></h1>
-        <p>Produção, custos e vendas organizados para você decidir com confiança e crescer sem perder a simplicidade.</p>
+  return <main className="login">
+    <section className="login-aside">
+      <Brand subtitle="Fábrica de bolos" />
+      <div>
+        <h1>A fábrica inteira, do insumo ao pote vendido.</h1>
+        <p>Estoque, receitas, produção, vendas e caixa no mesmo lugar, com um assistente que avisa o que comprar e o que produzir.</p>
+        <div className="login-steps">
+          <div><span>Insumos</span>entrada de compra, cobertura em dias e lista de compras pronta</div>
+          <div><span>Produção</span>ao concluir o lote, a receita sai do estoque sozinha</div>
+          <div><span>Vendas</span>comissões, parceiros e o que falta receber</div>
+          <div><span>Verdade</span>para onde vai cada real, aberto para a equipe</div>
+        </div>
       </div>
-      <div className="showcase-card">
-        <div className="mini-chart"><span style={{height:'36%'}} /><span style={{height:'58%'}} /><span style={{height:'47%'}} /><span style={{height:'75%'}} /><span style={{height:'68%'}} /><span style={{height:'92%'}} /></div>
-        <div><BarChart3 size={20} /><span>Faturamento este mês</span><strong>+18,4%</strong></div>
-      </div>
-      <small>Feito para quem transforma carinho em produto.</small>
+      <small>Doces Mivi · painel interno</small>
     </section>
-    <section className="login-form-wrap">
+    <section className="login-main">
       <form className="login-form" onSubmit={submit}>
-        <div className="mobile-login-logo"><div className="brand-mark"><CakeSlice /></div></div>
-        <span className="eyebrow">Bem-vinda de volta</span>
-        <h2>Acesse seu painel</h2>
-        <p>Entre com seus dados para continuar.</p>
+        <div><h2>Entrar</h2></div>
+        <p>Use o e-mail e a senha criados pela administração.</p>
         <ErrorNotice message={error} />
-        <label className="field"><span>E-mail</span><input type="email" value={form.email} onChange={e => setForm({...form, email:e.target.value})} required /></label>
-        <label className="field"><span>Senha</span><div className="password-input"><input type={show?'text':'password'} value={form.password} onChange={e => setForm({...form, password:e.target.value})} required /><button type="button" onClick={() => setShow(!show)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
-        <button className="btn primary login-submit" disabled={loading}>{loading?<LoaderCircle className="spin" size={19}/>:<>Entrar no painel <ArrowRight size={18}/></>}</button>
+        <label className="field"><span>E-mail</span><input type="email" autoComplete="username" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required autoFocus /></label>
+        <label className="field"><span>Senha</span><div className="password-input"><input type={show ? 'text' : 'password'} autoComplete="current-password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /><button type="button" className="icon-btn" onClick={() => setShow(!show)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}>{show ? <EyeOff /> : <Eye />}</button></div></label>
+        <button className="btn primary" disabled={loading}>{loading ? <LoaderCircle className="spin" /> : <>Entrar no painel <ArrowRight /></>}</button>
       </form>
     </section>
   </main>;

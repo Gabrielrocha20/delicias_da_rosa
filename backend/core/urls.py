@@ -1,6 +1,8 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 from .views import (
+    AssistantAskView,
+    AssistantInsightsView,
     DashboardView,
     EstablishmentViewSet,
     CashMovementViewSet,
@@ -14,6 +16,8 @@ from .views import (
     health,
     login,
     me,
+    logout,
+    change_password,
 )
 
 router = SimpleRouter(trailing_slash=False)
@@ -30,6 +34,10 @@ urlpatterns = [
     path('health', health),
     path('auth/login', login),
     path('auth/me', me),
+    path('auth/logout', logout),
+    path('auth/password', change_password),
+    path('assistant/insights', AssistantInsightsView.as_view()),
+    path('assistant/ask', AssistantAskView.as_view()),
     path('dashboard', DashboardView.as_view()),
     path('transparency', TransparencyView.as_view()),
 ] + router.urls

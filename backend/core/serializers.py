@@ -3,7 +3,8 @@ from django.db.models import Sum
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
-from .models import CashMovement, Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, User
+from .inventory import ingredient_context, stock_status, suggested_purchase
+from .models import CashMovement, Establishment, EstablishmentProduct, Ingredient, Person, Product, ProductionBatch, RecipeItem, Sale, StockMovement, User
 
 
 class CashMovementSerializer(serializers.ModelSerializer):
@@ -20,15 +21,105 @@ class CashMovementSerializer(serializers.ModelSerializer):
 
 class IngredientSerializer(serializers.ModelSerializer):
     unit_cost = serializers.FloatField(read_only=True)
+    daily_usage = serializers.SerializerMethodField()
+    coverage_days = serializers.SerializerMethodField()
+    planned_need = serializers.SerializerMethodField()
+    products_using = serializers.SerializerMethodField()
+    stock_value = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    suggestion = serializers.SerializerMethodField()
 
     class Meta:
         model = Ingredient
-        fields = ['id', 'name', 'category', 'purchase_price', 'purchase_quantity', 'unit', 'stock', 'min_stock', 'unit_cost', 'created_at']
+        fields = ['id', 'name', 'category', 'purchase_price', 'purchase_quantity', 'unit', 'stock', 'min_stock',
+                  'supplier', 'brand', 'notes', 'last_purchase_at', 'unit_cost', 'daily_usage', 'coverage_days',
+                  'planned_need', 'products_using', 'stock_value', 'status', 'suggestion', 'created_at']
+        read_only_fields = ['last_purchase_at']
+
+    def _ctx(self):
+        if 'inventory' not in self.context:
+            self.context['inventory'] = ingredient_context()
+        return self.context['inventory']
+
+    def get_daily_usage(self, obj):
+        return self._ctx()['daily_usage'].get(obj.id, 0)
+
+    def get_coverage_days(self, obj):
+        usage = self.get_daily_usage(obj)
+        return obj.stock / usage if usage else None
+
+    def get_planned_need(self, obj):
+        return self._ctx()['planned'].get(obj.id, 0)
+
+    def get_products_using(self, obj):
+        return self._ctx()['products_using'].get(obj.id, 0)
+
+    def get_stock_value(self, obj):
+        return max(obj.stock, 0) * obj.unit_cost
+
+    def get_status(self, obj):
+        return stock_status(obj, self.get_daily_usage(obj))
+
+    def get_suggestion(self, obj):
+        if self.get_status(obj) == 'ok' and obj.stock >= self.get_planned_need(obj):
+            return None
+        return suggested_purchase(obj, self.get_daily_usage(obj), self.get_planned_need(obj))
 
     def validate_purchase_quantity(self, value):
         if value <= 0:
             raise serializers.ValidationError('A quantidade comprada deve ser maior que zero.')
         return value
+
+    def validate_purchase_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError('O preço não pode ser negativo.')
+        return value
+
+    def validate_min_stock(self, value):
+        if value < 0:
+            raise serializers.ValidationError('O estoque mínimo não pode ser negativo.')
+        return value
+
+
+class StockMovementSerializer(serializers.ModelSerializer):
+    type_label = serializers.CharField(source='get_type_display', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.display_name', read_only=True, allow_null=True)
+    batch_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StockMovement
+        fields = ['id', 'type', 'type_label', 'quantity', 'stock_after', 'total_cost', 'supplier', 'note',
+                  'batch_id', 'batch_label', 'created_by_name', 'occurred_at', 'created_at']
+
+    def get_batch_label(self, obj):
+        if not obj.batch_id:
+            return None
+        return f'Lote #{obj.batch_id} · {obj.batch.product.name} ({obj.batch.quantity} un.)'
+
+
+class PurchaseInputSerializer(serializers.Serializer):
+    quantity = serializers.FloatField(min_value=0.000001, help_text='Na unidade de uso do insumo.')
+    total_price = serializers.FloatField(min_value=0)
+    supplier = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    occurred_at = serializers.DateTimeField(required=False)
+    update_cost = serializers.BooleanField(default=True)
+    register_expense = serializers.BooleanField(default=True)
+
+
+class AdjustInputSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=[StockMovement.ADJUSTMENT, StockMovement.LOSS])
+    counted_stock = serializers.FloatField(min_value=0, required=False)
+    quantity = serializers.FloatField(min_value=0.000001, required=False)
+    note = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    occurred_at = serializers.DateTimeField(required=False)
+
+    def validate(self, attrs):
+        if attrs['type'] == StockMovement.ADJUSTMENT and 'counted_stock' not in attrs:
+            raise serializers.ValidationError('Informe o estoque contado.')
+        if attrs['type'] == StockMovement.LOSS and 'quantity' not in attrs:
+            raise serializers.ValidationError('Informe a quantidade perdida.')
+        return attrs
 
 
 class PersonSerializer(serializers.ModelSerializer):
@@ -112,12 +203,14 @@ class ProductSerializer(serializers.ModelSerializer):
     unit_profit = serializers.SerializerMethodField()
     margin = serializers.SerializerMethodField()
     available_stock = serializers.SerializerMethodField()
+    max_producible = serializers.SerializerMethodField()
+    bottleneck = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'category', 'sale_price', 'packaging_cost', 'other_cost', 'sales_fee',
                   'seller_commission', 'producer_commission', 'cash_percentage', 'active', 'created_at',
-                  'recipe', 'unit_cost', 'unit_profit', 'margin', 'available_stock']
+                  'recipe', 'unit_cost', 'unit_profit', 'margin', 'available_stock', 'max_producible', 'bottleneck']
 
     def get_unit_cost(self, obj):
         return obj.unit_cost
@@ -134,14 +227,27 @@ class ProductSerializer(serializers.ModelSerializer):
         sold = obj.sales.exclude(status='cancelled').aggregate(total=Sum('quantity'))['total'] or 0
         return produced - sold
 
+    def _capacity(self, obj):
+        items = [item for item in obj.recipe_items.all() if item.quantity > 0]
+        if not items:
+            return None, None
+        limits = [(int(max(item.ingredient.stock, 0) // item.quantity), item.ingredient.name) for item in items]
+        return min(limits)
+
+    def get_max_producible(self, obj):
+        return self._capacity(obj)[0]
+
+    def get_bottleneck(self, obj):
+        return self._capacity(obj)[1]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if self.context.get('detail'):
             data['recipe'] = [{
                 'id': item.id, 'ingredient_id': item.ingredient_id, 'quantity': item.quantity,
                 'name': item.ingredient.name, 'unit': item.ingredient.unit,
-                'cost': item.quantity * item.ingredient.unit_cost,
-            } for item in instance.recipe_items.select_related('ingredient').order_by('ingredient__name')]
+                'cost': item.quantity * item.ingredient.unit_cost, 'stock': item.ingredient.stock,
+            } for item in sorted(instance.recipe_items.all(), key=lambda row: row.ingredient.name)]
         return data
 
     @transaction.atomic
@@ -300,7 +406,8 @@ class SaleSerializer(serializers.ModelSerializer):
         return attrs
 
     def save(self, **kwargs):
-        establishment = kwargs.get('establishment', self.validated_data.get('establishment'))
+        default_establishment = getattr(self.instance, 'establishment', None) if self.partial else None
+        establishment = kwargs.get('establishment', self.validated_data.get('establishment', default_establishment))
         product = kwargs.get('product', self.validated_data.get('product', getattr(self.instance, 'product', None)))
         if establishment:
             kwargs['partner_commission'] = EstablishmentProduct.objects.get(establishment=establishment, product=product, active=True).commission

@@ -1,4 +1,33 @@
-name: rosas-candy
+name: doces-mivi
+
+# Uso:
+#   SQLite (padrão, ideal para uma fábrica pequena):
+#     docker compose --env-file docker/.env.prod up -d --build
+#   PostgreSQL no mesmo servidor (defina DB_ENGINE=postgresql no .env):
+#     docker compose --env-file docker/.env.prod --profile postgres up -d --build
+
+x-backend-env: &backend-env
+  DB_ENGINE: ${DB_ENGINE:-sqlite}
+  SQLITE_PATH: ${SQLITE_PATH:-/app/data/rosas-candy.db}
+  POSTGRES_HOST: ${POSTGRES_HOST:-database}
+  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  POSTGRES_DB: ${POSTGRES_DB:-doces_mivi}
+  POSTGRES_USER: ${POSTGRES_USER:-doces_mivi}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+  POSTGRES_SSLMODE: ${POSTGRES_SSLMODE:-disable}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Defina uma chave secreta longa}
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Defina os hosts permitidos}
+  FRONTEND_URL: ${FRONTEND_URL:?Defina a URL publica do painel}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Defina as origens CORS permitidas}
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Defina as origens CSRF confiaveis}
+  DJANGO_SECURE_SSL_REDIRECT: ${DJANGO_SECURE_SSL_REDIRECT:-True}
+  DJANGO_SESSION_COOKIE_SECURE: ${DJANGO_SESSION_COOKIE_SECURE:-True}
+  DJANGO_CSRF_COOKIE_SECURE: ${DJANGO_CSRF_COOKIE_SECURE:-True}
+  DJANGO_HSTS_SECONDS: ${DJANGO_HSTS_SECONDS:-0}
+  GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
 
 services:
   backend:
@@ -6,18 +35,7 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: unless-stopped
-    environment:
-      DB_ENGINE: sqlite
-      SQLITE_PATH: ${SQLITE_PATH:-/app/data/rosas-candy.db}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Defina uma chave secreta longa}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?Defina os hosts permitidos}
-      FRONTEND_URL: ${FRONTEND_URL:?Defina a URL publica do painel}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Defina as origens CORS permitidas}
-      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Defina as origens CSRF confiaveis}
-      DJANGO_SECURE_SSL_REDIRECT: ${DJANGO_SECURE_SSL_REDIRECT:-True}
-      DJANGO_SESSION_COOKIE_SECURE: ${DJANGO_SESSION_COOKIE_SECURE:-True}
-      DJANGO_CSRF_COOKIE_SECURE: ${DJANGO_CSRF_COOKIE_SECURE:-True}
+    environment: *backend-env
     volumes:
       - sqlite_data:/app/data
     expose:
@@ -36,6 +54,11 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 5
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks: [internal]
 
   frontend:
@@ -49,10 +72,33 @@ services:
         condition: service_healthy
     ports:
       - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8085}:80"
+    logging: *logging
+    networks: [internal]
+
+  database:
+    image: postgres:17-alpine
+    profiles: [postgres]
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-doces_mivi}
+      POSTGRES_USER: ${POSTGRES_USER:-doces_mivi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD para usar o perfil postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
     networks: [internal]
 
 volumes:
+  # O nome fixo mantém o banco que já existe na VPS da versão anterior.
   sqlite_data:
+    name: rosas-candy_sqlite_data
+  postgres_data:
+    name: doces-mivi_postgres_data
 
 networks:
   internal:

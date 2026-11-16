@@ -1,4 +1,4 @@
-ROSA'S CANDY - CRIACAO E ACESSO AO POSTGRESQL
+DOCES MIVI - CRIACAO E ACESSO AO POSTGRESQL
 ================================================
 
 Este arquivo mostra a configuracao para um PostgreSQL ja instalado no servidor.
@@ -11,7 +11,7 @@ Linux (instalacao comum):
   sudo -u postgres psql
 
 Docker local deste projeto:
-  docker compose --env-file docker/.env.dev --profile local-db exec database psql -U rosas_candy_dev -d rosas_candy_dev
+  docker compose --env-file docker/.env.dev --profile local-db exec database psql -U doces_mivi_dev -d doces_mivi_dev
 
 
 2. CRIAR BANCO E USUARIO DE DESENVOLVIMENTO
@@ -19,17 +19,17 @@ Docker local deste projeto:
 
 Execute no psql:
 
-  CREATE ROLE rosas_candy_dev LOGIN;
-  \password rosas_candy_dev
-  CREATE DATABASE rosas_candy_dev
-    OWNER rosas_candy_dev
+  CREATE ROLE doces_mivi_dev LOGIN;
+  \password doces_mivi_dev
+  CREATE DATABASE doces_mivi_dev
+    OWNER doces_mivi_dev
     ENCODING 'UTF8'
     TEMPLATE template0;
-  REVOKE ALL ON DATABASE rosas_candy_dev FROM PUBLIC;
-  GRANT CONNECT, TEMPORARY ON DATABASE rosas_candy_dev TO rosas_candy_dev;
-  \connect rosas_candy_dev
+  REVOKE ALL ON DATABASE doces_mivi_dev FROM PUBLIC;
+  GRANT CONNECT, TEMPORARY ON DATABASE doces_mivi_dev TO doces_mivi_dev;
+  \connect doces_mivi_dev
   REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-  GRANT USAGE, CREATE ON SCHEMA public TO rosas_candy_dev;
+  GRANT USAGE, CREATE ON SCHEMA public TO doces_mivi_dev;
 
 Quando o comando \password perguntar, use uma senha exclusiva do ambiente dev.
 
@@ -39,17 +39,17 @@ Quando o comando \password perguntar, use uma senha exclusiva do ambiente dev.
 
 Execute no psql:
 
-  CREATE ROLE rosas_candy_prod LOGIN;
-  \password rosas_candy_prod
-  CREATE DATABASE rosas_candy_prod
-    OWNER rosas_candy_prod
+  CREATE ROLE doces_mivi_prod LOGIN;
+  \password doces_mivi_prod
+  CREATE DATABASE doces_mivi_prod
+    OWNER doces_mivi_prod
     ENCODING 'UTF8'
     TEMPLATE template0;
-  REVOKE ALL ON DATABASE rosas_candy_prod FROM PUBLIC;
-  GRANT CONNECT ON DATABASE rosas_candy_prod TO rosas_candy_prod;
-  \connect rosas_candy_prod
+  REVOKE ALL ON DATABASE doces_mivi_prod FROM PUBLIC;
+  GRANT CONNECT ON DATABASE doces_mivi_prod TO doces_mivi_prod;
+  \connect doces_mivi_prod
   REVOKE CREATE ON SCHEMA public FROM PUBLIC;
-  GRANT USAGE, CREATE ON SCHEMA public TO rosas_candy_prod;
+  GRANT USAGE, CREATE ON SCHEMA public TO doces_mivi_prod;
 
 Use uma senha longa, aleatoria e diferente da senha de desenvolvimento.
 
@@ -62,8 +62,8 @@ Desenvolvimento, em backend/.env ou docker/.env.dev:
   DB_ENGINE=postgresql
   POSTGRES_HOST=localhost
   POSTGRES_PORT=5432
-  POSTGRES_DB=rosas_candy_dev
-  POSTGRES_USER=rosas_candy_dev
+  POSTGRES_DB=doces_mivi_dev
+  POSTGRES_USER=doces_mivi_dev
   POSTGRES_PASSWORD=SENHA_DEV
   POSTGRES_SSLMODE=prefer
 
@@ -72,8 +72,8 @@ Producao, em docker/.env.prod ou no gerenciador de segredos do servidor:
   DB_ENGINE=postgresql
   POSTGRES_HOST=db.interno.exemplo
   POSTGRES_PORT=5432
-  POSTGRES_DB=rosas_candy_prod
-  POSTGRES_USER=rosas_candy_prod
+  POSTGRES_DB=doces_mivi_prod
+  POSTGRES_USER=doces_mivi_prod
   POSTGRES_PASSWORD=SENHA_PROD
   POSTGRES_SSLMODE=require
 
@@ -95,7 +95,7 @@ Se o banco estiver em outro servidor:
   - Nunca exponha a porta 5432 para 0.0.0.0/0.
 
 Exemplo de pg_hba.conf (troque o IP):
-  hostssl  rosas_candy_prod  rosas_candy_prod  10.0.0.25/32  scram-sha-256
+  hostssl  doces_mivi_prod  doces_mivi_prod  10.0.0.25/32  scram-sha-256
 
 
 6. MIGRACOES E TESTE DE CONEXAO
@@ -134,9 +134,9 @@ rota pela rede interna ao Django; por isso o backend nao precisa ficar publico.
 -----------------
 
 Backup:
-  pg_dump -h HOST -U rosas_candy_prod -Fc rosas_candy_prod -f rosas_candy_prod.dump
+  pg_dump -h HOST -U doces_mivi_prod -Fc doces_mivi_prod -f doces_mivi_prod.dump
 
 Restauracao em um banco vazio:
-  pg_restore -h HOST -U rosas_candy_prod -d rosas_candy_prod --clean --if-exists rosas_candy_prod.dump
+  pg_restore -h HOST -U doces_mivi_prod -d doces_mivi_prod --clean --if-exists doces_mivi_prod.dump
 
 Teste restauracoes periodicamente. Um backup que nunca foi restaurado nao esta validado.

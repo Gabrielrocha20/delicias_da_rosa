@@ -1,33 +1,102 @@
 import { useEffect, useState } from 'react';
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { Scale, ShieldCheck, WalletCards, PiggyBank, UsersRound, Factory, Store, ReceiptText } from 'lucide-react';
 import { api } from '../lib/api';
 import { currency, number, percent } from '../lib/format';
-import { Badge, Loading, PageHeader } from '../components/UI';
+import { Avatar, Empty, ErrorNotice, Kpi, KpiStrip, Loading, PageHeader, Pill, Segmented } from '../components/UI';
 
-const ranges={'7d':'7 dias','30d':'30 dias','90d':'90 dias','12m':'12 meses'};
-const colors=['#d19a61','#785b89','#6f936b','#cb6e75','#8c2f3d','#a78d7b','#dfbc72'];
+const RANGES = [['7d', '7 dias'], ['30d', '30 dias'], ['90d', '90 dias'], ['12m', '12 meses']];
+/* Uma família de tons: o resultado do proprietário leva a cor da marca; o resto é escala neutra-quente. */
+const PARTS = [
+  ['owner', 'Resultado do proprietário', '#a3324a'],
+  ['product_cost', 'Ingredientes e embalagens', '#3a3330'],
+  ['sellers', 'Vendedores', '#6b625c'],
+  ['producers', 'Produtores', '#8f8680'],
+  ['cash_reserve', 'Reserva de caixa', '#b3aba5'],
+  ['partners', 'Parceiros', '#cfc8c3'],
+  ['sales_fees', 'Taxas de venda', '#e2dcd8'],
+];
 
-export default function Transparency(){
-  const [range,setRange]=useState('30d'),[startDate,setStartDate]=useState(''),[endDate,setEndDate]=useState(''),[data,setData]=useState(null),[loading,setLoading]=useState(true);
-  useEffect(()=>{setLoading(true);const params=new URLSearchParams({range});if(startDate&&endDate){params.set('start',startDate);params.set('end',endDate)}api(`/transparency?${params}`).then(setData).finally(()=>setLoading(false))},[range,startDate,endDate]);
-  if(loading&&!data)return <div className="page"><Loading/></div>;
-  const t=data?.totals||{};
-  const distribution=[
-    {name:'Ingredientes e embalagens',value:t.product_cost||0,icon:Factory},
-    {name:'Vendedores',value:t.sellers||0,icon:UsersRound},
-    {name:'Produtores',value:t.producers||0,icon:Factory},
-    {name:'Caixa da empresa',value:t.cash_reserve||0,icon:PiggyBank},
-    {name:'Parceiros',value:t.partners||0,icon:Store},
-    {name:'Taxas de venda',value:t.sales_fees||0,icon:ReceiptText},
-    {name:'Resultado do proprietário',value:Math.max(0,t.owner||0),icon:WalletCards},
-  ];
-  return <div className="page truth-page"><PageHeader eyebrow="Transparência total" title="Página da Verdade" description="Cada real vendido, dividido de forma aberta para toda a equipe." action={<div className="analysis-filters"><div className="range-picker">{Object.entries(ranges).map(([k,v])=><button className={!startDate&&!endDate&&range===k?'active':''} onClick={()=>{setStartDate('');setEndDate('');setRange(k)}} key={k}>{v}</button>)}</div><div className="date-filter"><label>De <input aria-label="Data inicial da análise" type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}/></label><label>Até <input aria-label="Data final da análise" type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}/></label></div></div>}/>
-    <section className="truth-hero"><div><span><ShieldCheck size={16}/> Números compartilhados com toda a equipe</span><h2>De {currency(t.revenue)} faturados, o resultado final do proprietário é <em>{currency(t.owner)}</em>.</h2><p>Nenhum valor fica escondido: custos, taxas, comissões e reserva de caixa aparecem na mesma conta.</p></div><div className="truth-roi"><Scale size={22}/><span>ROI real da empresa</span><strong>{percent(t.roi)}</strong><small>resultado do proprietário ÷ custo dos produtos</small></div></section>
-    <section className="dashboard-grid truth-main"><article className="panel"><div className="panel-head"><div><span className="panel-kicker">Destino do faturamento</span><h2>Para onde vai cada real</h2></div></div><div className="truth-donut"><ResponsiveContainer width="45%" height={270}><PieChart><Pie data={distribution.filter(x=>x.value>0)} dataKey="value" innerRadius={67} outerRadius={101} paddingAngle={2}>{distribution.map((_,i)=><Cell key={i} fill={colors[i]}/>)}</Pie><Tooltip formatter={v=>currency(v)}/></PieChart></ResponsiveContainer><div className="truth-legend">{distribution.map((item,i)=><div key={item.name}><i style={{background:colors[i]}}/><span>{item.name}<small>{t.revenue?percent(item.value/t.revenue*100):'0%'}</small></span><strong>{currency(item.value)}</strong></div>)}</div></div></article>
-      <article className="panel truth-receipt"><div className="panel-head"><div><span className="panel-kicker">Conta aberta</span><h2>Fechamento do período</h2></div></div><div className="truth-line revenue"><span>Faturamento bruto</span><strong>{currency(t.revenue)}</strong></div><div className="truth-line"><span>(−) Ingredientes e embalagens</span><strong>{currency(t.product_cost)}</strong></div><div className="truth-line"><span>(−) Comissões dos vendedores</span><strong>{currency(t.sellers)}</strong></div><div className="truth-line"><span>(−) Comissões dos produtores</span><strong>{currency(t.producers)}</strong></div><div className="truth-line"><span>(−) Reserva de caixa</span><strong>{currency(t.cash_reserve)}</strong></div><div className="truth-line"><span>(−) Estabelecimentos parceiros</span><strong>{currency(t.partners)}</strong></div><div className="truth-line"><span>(−) Taxas dos canais de venda</span><strong>{currency(t.sales_fees)}</strong></div><div className={`truth-line final ${t.owner<0?'negative':''}`}><span>(=) Resultado do proprietário</span><strong>{currency(t.owner)}</strong></div><p>Valores calculados venda por venda conforme os percentuais da ficha técnica vigente.</p></article>
-    </section>
-    <section className="dashboard-grid truth-lists"><article className="panel"><div className="panel-head"><div><span className="panel-kicker">Equipe</span><h2>Quanto cada pessoa ganhou</h2></div><Badge tone="positive">{data.people.length} pessoas</Badge></div><div className="earning-list">{data.people.length?data.people.map((person,index)=><div key={person.id}><span className={`earning-rank ${person.type}`}>{index+1}</span><div><strong>{person.name}</strong><span>{person.type==='seller'?'Vendedor':'Produtor'} · {number(person.units)} unidades vinculadas</span></div><strong>{currency(person.earnings)}</strong></div>):<p className="muted">Nenhuma comissão no período.</p>}</div></article><article className="panel"><div className="panel-head"><div><span className="panel-kicker">Parceiros</span><h2>Retorno por estabelecimento</h2></div></div><div className="earning-list">{data.partners.length?data.partners.map((partner,index)=><div key={partner.id}><span className="earning-rank partner">{index+1}</span><div><strong>{partner.name}</strong><span>{number(partner.units)} unidades · {currency(partner.revenue)} vendidos</span></div><strong>{currency(partner.earnings)}</strong></div>):<p className="muted">Nenhuma venda de parceiro no período.</p>}</div></article></section>
-    <section className="panel table-panel truth-products"><div className="table-toolbar"><div><span className="panel-kicker">Produto por produto</span><h2>Quem realmente gera resultado</h2></div><span>{number(t.units)} unidades no período</span></div><div className="table-scroll"><table><thead><tr><th>Produto</th><th>Unidades</th><th>Faturamento</th><th>Custo direto</th><th>Resultado proprietário</th><th>Margem final</th></tr></thead><tbody>{data.byProduct.map(item=><tr key={item.name}><td><strong>{item.name}</strong></td><td>{number(item.units)}</td><td>{currency(item.revenue)}</td><td>{currency(item.cost)}</td><td className={item.owner>=0?'positive-text':'negative-text'}>{currency(item.owner)}</td><td><Badge tone={item.owner>=0?'positive':'danger'}>{item.revenue?percent(item.owner/item.revenue*100):'0%'}</Badge></td></tr>)}</tbody></table></div></section>
-  </div>
+export default function Transparency() {
+  const [range, setRange] = useState('30d');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const params = new URLSearchParams({ range });
+    if (start && end) { params.set('start', start); params.set('end', end); }
+    api(`/transparency?${params}`).then(result => { setData(result); setError(''); }).catch(err => setError(err.message));
+  }, [range, start, end]);
+  const t = data?.totals || {};
+  const parts = PARTS.map(([key, label, color]) => ({ key, label, color, value: key === 'owner' ? Math.max(0, t.owner || 0) : t[key] || 0 }));
+
+  return <div className="page">
+    <PageHeader title="Página da Verdade" description={data ? `De ${currency(t.revenue)} vendidos, ${currency(t.owner)} ficaram com o proprietário. Todo o resto está dividido abaixo, aberto para a equipe.` : 'Cada real vendido, dividido de forma aberta.'}
+      actions={<>
+        <Segmented label="Período" value={start && end ? '' : range} onChange={key => { setStart(''); setEnd(''); setRange(key); }} options={RANGES} />
+        <div className="date-range"><input type="date" value={start} onChange={e => setStart(e.target.value)} aria-label="Data inicial" /><span className="small muted">até</span><input type="date" value={end} onChange={e => setEnd(e.target.value)} aria-label="Data final" /></div>
+      </>} />
+    <ErrorNotice message={error} />
+    {!data ? <section className="panel"><Loading rows={6} /></section> : <>
+      <KpiStrip>
+        <Kpi lead label="Faturamento" value={currency(t.revenue)} note={`${number(t.units, 0)} unidades`} />
+        <Kpi label="Resultado do proprietário" value={<span className={t.owner < 0 ? 'negative' : ''}>{currency(t.owner)}</span>} note={t.revenue ? `${percent((t.owner / t.revenue) * 100)} do faturamento` : '—'} />
+        <Kpi label="Distribuído" value={currency(t.distributed)} note="custos, comissões, taxas e reserva" />
+        <Kpi label="Retorno sobre o custo" value={percent(t.roi)} note="resultado ÷ custo dos produtos" />
+      </KpiStrip>
+      <div className="grid cols-2 align-start">
+        <section className="panel">
+          <div className="panel-head"><div><h2>Para onde vai cada real</h2><p>Proporção do faturamento do período</p></div></div>
+          <div className="panel-body">
+            {t.revenue ? <>
+              <div className="split-bar" role="img" aria-label="Divisão do faturamento">{parts.filter(part => part.value > 0).map(part => <i key={part.key} style={{ width: `${(part.value / t.revenue) * 100}%`, background: part.color }} title={`${part.label}: ${currency(part.value)}`} />)}</div>
+              <div className="split-legend">{parts.map(part => <div key={part.key}><i style={{ background: part.color }} /><span>{part.label}</span><strong>{percent((part.value / t.revenue) * 100)}</strong></div>)}</div>
+            </> : <Empty title="Sem vendas no período" />}
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-head"><div><h2>Fechamento do período</h2><p>Calculado venda a venda pela ficha técnica vigente</p></div></div>
+          <div className="panel-body ledger">
+            <div className="line head"><span>Faturamento bruto</span><strong>{currency(t.revenue)}</strong></div>
+            <div className="line"><span>− Ingredientes e embalagens</span><strong>{currency(t.product_cost)}</strong></div>
+            <div className="line"><span>− Comissões de vendedores</span><strong>{currency(t.sellers)}</strong></div>
+            <div className="line"><span>− Comissões de produtores</span><strong>{currency(t.producers)}</strong></div>
+            <div className="line"><span>− Reserva de caixa</span><strong>{currency(t.cash_reserve)}</strong></div>
+            <div className="line"><span>− Parceiros</span><strong>{currency(t.partners)}</strong></div>
+            <div className="line"><span>− Taxas dos canais</span><strong>{currency(t.sales_fees)}</strong></div>
+            <div className={`line result ${t.owner < 0 ? 'bad' : ''}`}><span>= Resultado do proprietário</span><strong>{currency(t.owner)}</strong></div>
+          </div>
+        </section>
+      </div>
+      <div className="grid cols-2 align-start">
+        <section className="panel">
+          <div className="panel-head"><div><h2>Quanto cada pessoa ganhou</h2><p>{data.people.length} pessoas com comissão no período</p></div></div>
+          {data.people.length ? <div className="table-wrap"><table className="responsive"><tbody>{data.people.map(person => <tr key={`${person.type}-${person.id}`}>
+            <td className="primary"><div className="cell-title"><Avatar name={person.name} id={person.id} /><span><strong>{person.name}</strong><small>{person.type === 'seller' ? 'Vendedor' : 'Produtor'} · {number(person.units, 0)} un.</small></span></div></td>
+            <td className="num lead">{currency(person.earnings)}</td>
+          </tr>)}</tbody></table></div> : <Empty title="Nenhuma comissão no período" />}
+        </section>
+        <section className="panel">
+          <div className="panel-head"><div><h2>Parceiros</h2><p>Comissão de revenda no período</p></div></div>
+          {data.partners.length ? <div className="table-wrap"><table className="responsive"><tbody>{data.partners.map(partner => <tr key={partner.id}>
+            <td className="primary"><strong>{partner.name}</strong><span className="sub">{number(partner.units, 0)} un. · {currency(partner.revenue)} vendidos</span></td>
+            <td className="num lead">{currency(partner.earnings)}</td>
+          </tr>)}</tbody></table></div> : <Empty title="Nenhuma venda de parceiro no período" />}
+        </section>
+      </div>
+      <section className="panel">
+        <div className="panel-head"><div><h2>Produto por produto</h2><p>Quem realmente gera resultado</p></div></div>
+        {data.byProduct.length ? <div className="table-wrap"><table className="responsive">
+          <thead><tr><th>Produto</th><th className="num">Unidades</th><th className="num">Faturamento</th><th className="num">Custo direto</th><th className="num">Resultado</th><th className="num">Margem final</th></tr></thead>
+          <tbody>{data.byProduct.map(item => <tr key={item.name}>
+            <td className="primary"><strong>{item.name}</strong></td>
+            <td className="num meta" data-label="Unidades">{number(item.units, 0)}</td>
+            <td className="num meta" data-label="Faturamento">{currency(item.revenue)}</td>
+            <td className="num meta" data-label="Custo">{currency(item.cost)}</td>
+            <td className={`num lead ${item.owner < 0 ? 'negative' : ''}`}>{currency(item.owner)}</td>
+            <td className="num status"><Pill tone={item.owner >= 0 ? 'positive' : 'negative'}>{item.revenue ? percent((item.owner / item.revenue) * 100) : '—'}</Pill></td>
+          </tr>)}</tbody>
+        </table></div> : <Empty title="Sem vendas no período" />}
+      </section>
+    </>}
+  </div>;
 }

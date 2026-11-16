@@ -4,6 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from .models import (
+    CashMovement,
     Establishment,
     EstablishmentProduct,
     Ingredient,
@@ -12,6 +13,7 @@ from .models import (
     ProductionBatch,
     RecipeItem,
     Sale,
+    StockMovement,
     User,
 )
 from .services import dashboard_data, transparency_data
@@ -19,8 +21,8 @@ from .services import dashboard_data, transparency_data
 
 class FinancialUnitTests(TestCase):
     def setUp(self):
-        self.seller = User.objects.get(email='vendedor@rosascandy.com')
-        self.producer = User.objects.get(email='produtor@rosascandy.com')
+        self.seller = User.objects.get(email='vendedor@docesmivi.com.br')
+        self.producer = User.objects.get(email='produtor@docesmivi.com.br')
         self.ingredient = Ingredient.objects.create(
             name='Teste unitario', purchase_price=20, purchase_quantity=1000, unit='g'
         )
@@ -74,9 +76,9 @@ class FinancialUnitTests(TestCase):
 
 class ApiSecurityBase(APITestCase):
     def setUp(self):
-        self.admin = User.objects.get(email='admin@rosascandy.com')
-        self.seller = User.objects.get(email='vendedor@rosascandy.com')
-        self.producer = User.objects.get(email='produtor@rosascandy.com')
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        self.seller = User.objects.get(email='vendedor@docesmivi.com.br')
+        self.producer = User.objects.get(email='produtor@docesmivi.com.br')
         self.product = Product.objects.first()
         self.other_seller_person = Person.objects.create(
             name='Vendedor secundario', type='seller', email='secundario@example.com', commission=15
@@ -242,8 +244,8 @@ class InputValidationSecurityTests(ApiSecurityBase):
 
 class ProductionInventoryTests(APITestCase):
     def setUp(self):
-        self.admin = User.objects.get(email='admin@rosascandy.com')
-        self.producer = User.objects.get(email='produtor@rosascandy.com').person
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        self.producer = User.objects.get(email='produtor@docesmivi.com.br').person
         self.ingredient = Ingredient.objects.create(
             name='Insumo para baixa', purchase_price=10, purchase_quantity=100, unit='g', stock=1000,
         )
@@ -291,3 +293,201 @@ class ProductionInventoryTests(APITestCase):
         self.assertFalse(ProductionBatch.objects.filter(product=self.product).exists())
         self.ingredient.refresh_from_db()
         self.assertEqual(self.ingredient.stock, 20)
+
+
+class IngredientStockTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        self.seller = User.objects.get(email='vendedor@docesmivi.com.br')
+        self.ingredient = Ingredient.objects.create(
+            name='Leite em pó', category='Laticínios', purchase_price=30, purchase_quantity=1000, unit='g',
+            stock=200, min_stock=500,
+        )
+        self.auth(self.admin)
+
+    def auth(self, user):
+        token, _ = Token.objects.get_or_create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.key}')
+
+    def test_purchase_adds_stock_updates_cost_and_registers_expense(self):
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/purchase', {
+            'quantity': 2000, 'total_price': 50, 'supplier': 'Atacadão',
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        self.ingredient.refresh_from_db()
+        self.assertEqual(self.ingredient.stock, 2200)
+        self.assertAlmostEqual(self.ingredient.unit_cost, 0.025)
+        self.assertEqual(self.ingredient.supplier, 'Atacadão')
+        self.assertIsNotNone(self.ingredient.last_purchase_at)
+        movement = StockMovement.objects.get(ingredient=self.ingredient, type='purchase')
+        self.assertEqual(movement.stock_after, 2200)
+        self.assertEqual(movement.cash_movement.amount, 50)
+        self.assertEqual(CashMovement.objects.filter(category='Compra de insumos').count(), 1)
+
+    def test_purchase_without_expense_or_cost_update(self):
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/purchase', {
+            'quantity': 100, 'total_price': 10, 'update_cost': False, 'register_expense': False,
+        }, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.ingredient.refresh_from_db()
+        self.assertAlmostEqual(self.ingredient.unit_cost, 0.03)
+        self.assertFalse(CashMovement.objects.exists())
+
+    def test_inventory_count_and_loss(self):
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/adjust', {
+            'type': 'adjustment', 'counted_stock': 150, 'note': 'Contagem semanal',
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        self.assertEqual(response.json()['stock'], 150)
+
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/adjust', {
+            'type': 'loss', 'quantity': 500,
+        }, format='json')
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/adjust', {
+            'type': 'loss', 'quantity': 50, 'note': 'Pacote rasgado',
+        }, format='json')
+        self.assertEqual(response.json()['stock'], 100)
+        history = self.client.get(f'/api/ingredients/{self.ingredient.id}/movements').json()
+        self.assertEqual([row['quantity'] for row in history], [-50, -50])
+
+    def test_list_reports_status_and_purchase_suggestion_in_whole_packs(self):
+        row = next(item for item in self.client.get('/api/ingredients').json() if item['id'] == self.ingredient.id)
+        self.assertEqual(row['status'], 'low')
+        self.assertEqual(row['suggestion']['packs'], 1)
+        self.assertEqual(row['suggestion']['quantity'], 1000)
+        self.assertEqual(row['suggestion']['estimated_cost'], 30)
+        self.assertEqual(row['stock_value'], 6)
+
+    def test_production_writes_stock_history_and_removes_it_on_delete(self):
+        product = Product.objects.create(name='Pote ninho', sale_price=15)
+        RecipeItem.objects.create(product=product, ingredient=self.ingredient, quantity=20)
+        producer = User.objects.get(email='produtor@docesmivi.com.br').person
+        response = self.client.post('/api/production', {
+            'product_id': product.id, 'producer_id': producer.id, 'quantity': 5,
+            'status': 'completed', 'produced_at': timezone.now().isoformat(),
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        movement = StockMovement.objects.get(ingredient=self.ingredient, type='production')
+        self.assertEqual(movement.quantity, -100)
+        self.client.delete(f"/api/production/{response.json()['id']}")
+        self.assertFalse(StockMovement.objects.filter(type='production').exists())
+        self.ingredient.refresh_from_db()
+        self.assertEqual(self.ingredient.stock, 200)
+
+    def test_product_reports_how_many_units_stock_allows(self):
+        product = Product.objects.create(name='Pote capacidade', sale_price=15)
+        RecipeItem.objects.create(product=product, ingredient=self.ingredient, quantity=30)
+        row = next(item for item in self.client.get('/api/products').json() if item['id'] == product.id)
+        self.assertEqual(row['max_producible'], 6)
+        self.assertEqual(row['bottleneck'], 'Leite em pó')
+
+    def test_seller_cannot_move_stock(self):
+        self.auth(self.seller)
+        response = self.client.post(f'/api/ingredients/{self.ingredient.id}/purchase', {'quantity': 1, 'total_price': 1}, format='json')
+        self.assertEqual(response.status_code, 403)
+
+
+class AssistantTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        self.seller = User.objects.get(email='vendedor@docesmivi.com.br')
+        self.producer = User.objects.get(email='produtor@docesmivi.com.br')
+
+    def auth(self, user):
+        token, _ = Token.objects.get_or_create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.key}')
+
+    def test_admin_gets_shortage_for_planned_batch_and_shopping_list(self):
+        ingredient = Ingredient.objects.create(name='Morango', purchase_price=12, purchase_quantity=500, unit='g', stock=100)
+        product = Product.objects.create(name='Pote morango', sale_price=16)
+        RecipeItem.objects.create(product=product, ingredient=ingredient, quantity=40)
+        ProductionBatch.objects.create(product=product, producer=self.producer.person, quantity=10,
+                                       status='planned', produced_at=timezone.now())
+        self.auth(self.admin)
+        data = self.client.get('/api/assistant/insights').json()
+        titles = [item['title'] for item in data['insights']]
+        self.assertIn('Falta Morango para os lotes agendados', titles)
+        self.assertEqual(data['insights'][0]['severity'], 'critical')
+        row = next(item for item in data['shopping_list'] if item['name'] == 'Morango')
+        self.assertGreaterEqual(row['quantity'], 300)
+        self.assertEqual(row['quantity'] % 500, 0)
+        self.assertFalse(data['ai_enabled'])
+
+    def test_negative_margin_product_is_flagged_with_target_price(self):
+        ingredient = Ingredient.objects.create(name='Chocolate nobre', purchase_price=100, purchase_quantity=1000, unit='g', stock=5000)
+        product = Product.objects.create(name='Pote caro', sale_price=10, seller_commission=15, producer_commission=15, cash_percentage=20)
+        RecipeItem.objects.create(product=product, ingredient=ingredient, quantity=80)
+        self.auth(self.admin)
+        data = self.client.get('/api/assistant/insights').json()
+        item = next(row for row in data['insights'] if row['title'] == 'Pote caro dá prejuízo')
+        self.assertIn('25% de margem', item['detail'])
+
+    def test_non_admin_insights_hide_business_data(self):
+        for user in (self.seller, self.producer):
+            self.auth(user)
+            data = self.client.get('/api/assistant/insights').json()
+            self.assertEqual(data['shopping_list'], [])
+            self.assertEqual(data['producible'], [])
+
+    def test_ask_without_api_key_returns_clear_error(self):
+        self.auth(self.admin)
+        response = self.client.post('/api/assistant/ask', {'question': 'O que devo produzir?'}, format='json')
+        self.assertEqual(response.status_code, 503)
+        self.assertIn('ANTHROPIC_API_KEY', response.json()['message'])
+
+
+class AccountTests(APITestCase):
+    def test_logout_revokes_token_and_password_change_rotates_it(self):
+        user = User.objects.get(email='admin@docesmivi.com.br')
+        token = Token.objects.create(user=user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.key}')
+        response = self.client.post('/api/auth/password', {'current_password': 'errada', 'new_password': 'x'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        response = self.client.post('/api/auth/password', {
+            'current_password': 'admin123', 'new_password': 'Bolo-de-pote-2026!'}, format='json')
+        self.assertEqual(response.status_code, 200, response.json())
+        new_token = response.json()['token']
+        self.assertNotEqual(new_token, token.key)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_token}')
+        self.assertEqual(self.client.post('/api/auth/logout').status_code, 204)
+        self.assertEqual(self.client.get('/api/auth/me').status_code, 401)
+
+
+class AssistantSetupAndPartialUpdateTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.get(email='admin@docesmivi.com.br')
+        token, _ = Token.objects.get_or_create(user=self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token.key}')
+
+    def test_ingredients_in_recipes_without_minimum_are_flagged(self):
+        ingredient = Ingredient.objects.create(name='Farinha sem mínimo', purchase_price=5, purchase_quantity=1000, unit='g', stock=3000)
+        product = Product.objects.create(name='Pote com farinha', sale_price=15)
+        RecipeItem.objects.create(product=product, ingredient=ingredient, quantity=10)
+        data = self.client.get('/api/assistant/insights').json()
+        item = next(row for row in data['insights'] if row['kind'] == 'setup')
+        self.assertIn('Farinha sem mínimo', item['detail'])
+        self.assertEqual(item['action']['route'], '/insumos?sem_minimo=1')
+
+    def test_marking_sale_paid_keeps_partner_commission_and_producer(self):
+        seller = Person.objects.create(name='Vendedora', type='seller')
+        producer = Person.objects.create(name='Produtora', type='producer')
+        other = Person.objects.create(name='Outra produtora', type='producer')
+        product = Product.objects.create(name='Pote parceiro', sale_price=10)
+        place = Establishment.objects.create(name='Café da esquina')
+        EstablishmentProduct.objects.create(establishment=place, product=product, commission=20)
+        response = self.client.post('/api/sales', {
+            'product_id': product.id, 'seller_id': seller.id, 'producer_id': producer.id, 'establishment_id': place.id,
+            'quantity': 2, 'unit_price': 10, 'status': 'pending', 'sold_at': timezone.now().isoformat(),
+        }, format='json')
+        self.assertEqual(response.status_code, 201, response.json())
+        ProductionBatch.objects.create(product=product, producer=other, quantity=5, status='completed', produced_at=timezone.now())
+        sale_id = response.json()['id']
+        response = self.client.patch(f'/api/sales/{sale_id}', {'status': 'paid'}, format='json')
+        self.assertEqual(response.status_code, 200, response.json())
+        sale = Sale.objects.get(pk=sale_id)
+        self.assertEqual(sale.status, 'paid')
+        self.assertEqual(sale.partner_commission, 20)
+        self.assertEqual(sale.producer, producer)
+        self.assertEqual(sale.establishment, place)

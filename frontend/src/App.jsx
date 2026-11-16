@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, PackageOpen, CakeSlice, UsersRound, CookingPot, ShoppingBag, LogOut, Menu, X, ChevronDown, Building2, KeyRound, Scale, Wallet } from 'lucide-react';
-import { clearSession, getStoredUser, getToken } from './lib/api';
+import { useEffect, useState } from 'react';
+import { Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Building2, CakeSlice, ChevronRight, CookingPot, KeyRound, LayoutDashboard, LogOut, Menu, PackageOpen, Scale, ShoppingBag, Sparkles, UsersRound, Wallet } from 'lucide-react';
+import { getStoredUser, getToken, logout } from './lib/api';
+import { Avatar, Brand, Toasts } from './components/UI';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Ingredients from './pages/Ingredients';
@@ -13,58 +14,75 @@ import Accesses from './pages/Accesses';
 import Establishments from './pages/Establishments';
 import Transparency from './pages/Transparency';
 import CashFlow from './pages/CashFlow';
+import Assistant from './pages/Assistant';
 
-const nav = [
-  ['/', 'Minha visão', LayoutDashboard, ['admin','seller','producer']],
-  ['/produtos', 'Produtos & custos', CakeSlice, ['admin']],
-  ['/insumos', 'Insumos', PackageOpen, ['admin']],
-  ['/equipe', 'Equipe', UsersRound, ['admin']],
-  ['/acessos', 'Acessos', KeyRound, ['admin']],
-  ['/parceiros', 'Parceiros', Building2, ['admin']],
-  ['/caixa', 'Entradas e saídas', Wallet, ['admin']],
-  ['/producao', 'Produção', CookingPot, ['admin','producer']],
-  ['/vendas', 'Vendas', ShoppingBag, ['admin','seller']],
-  ['/verdade', 'Página da Verdade', Scale, ['admin','seller','producer']],
+const ALL = ['admin', 'seller', 'producer'];
+export const navGroups = [
+  ['Dia a dia', [
+    ['/', 'Visão geral', LayoutDashboard, ALL],
+    ['/assistente', 'Assistente', Sparkles, ALL],
+    ['/vendas', 'Vendas', ShoppingBag, ['admin', 'seller']],
+    ['/producao', 'Produção', CookingPot, ['admin', 'producer']],
+  ]],
+  ['Cadastros', [
+    ['/insumos', 'Insumos', PackageOpen, ['admin']],
+    ['/produtos', 'Produtos e receitas', CakeSlice, ['admin']],
+    ['/parceiros', 'Parceiros', Building2, ['admin']],
+    ['/equipe', 'Equipe', UsersRound, ['admin']],
+    ['/acessos', 'Acessos', KeyRound, ['admin']],
+  ]],
+  ['Dinheiro', [
+    ['/caixa', 'Entradas e saídas', Wallet, ['admin']],
+    ['/verdade', 'Página da Verdade', Scale, ALL],
+  ]],
 ];
-
-function Brand({ compact = false }) {
-  return <div className={`brand ${compact ? 'compact' : ''}`}>
-    <div className="brand-mark"><CakeSlice size={23} /></div>
-    {!compact && <div><strong>Rosa’s Candy</strong><span>gestão que dá gosto</span></div>}
-  </div>;
-}
+const roleNames = { admin: 'Administrador', seller: 'Vendedor', producer: 'Produtor' };
 
 function Layout() {
   const [menu, setMenu] = useState(false);
   const user = getStoredUser();
   const navigate = useNavigate();
-  const logout = () => { clearSession(); navigate('/login'); };
-  const availableNav = nav.filter(([, , , roles]) => roles.includes(user?.role));
-  const mobilePaths = ['/', '/vendas', '/producao', '/verdade'];
-  const mobileNav = mobilePaths.map(path => availableNav.find(([to]) => to === path)).filter(Boolean);
+  const location = useLocation();
+  useEffect(() => { setMenu(false); }, [location.pathname]);
+  const groups = navGroups
+    .map(([label, links]) => [label, links.filter(([, , , roles]) => roles.includes(user?.role))])
+    .filter(([, links]) => links.length);
+  const flat = groups.flatMap(([, links]) => links);
+  const current = flat.find(([to]) => (to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)));
+  const mobile = ['/', '/vendas', '/producao', '/insumos', '/assistente'].map(path => flat.find(([to]) => to === path)).filter(Boolean).slice(0, 4);
+  const exit = async () => { await logout(); navigate('/login'); };
 
   return <div className="app-shell">
-    <aside className={`sidebar ${menu ? 'open' : ''}`}>
-      <div className="sidebar-top"><Brand /><button className="mobile-close icon-btn" onClick={() => setMenu(false)}><X /></button></div>
-      <nav>{availableNav.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenu(false)}><Icon size={19} /><span>{label}</span></NavLink>)}</nav>
+    <aside className={`sidebar ${menu ? 'open' : ''}`} aria-label="Menu principal">
+      <Brand />
+      <nav>
+        {groups.map(([label, links]) => <div className="nav-group" key={label}>
+          <span className="nav-group-label">{label}</span>
+          {links.map(([to, text, Icon]) => <NavLink key={to} to={to} end={to === '/'} className="nav-link"><Icon aria-hidden="true" /><span>{text}</span></NavLink>)}
+        </div>)}
+      </nav>
       <div className="sidebar-foot">
-        <div className="user-card"><div className="avatar">{user?.name?.slice(0, 2).toUpperCase() || 'RC'}</div><div><strong>{user?.name || 'Admin'}</strong><span>{{admin:'Administrador',seller:'Vendedor',producer:'Produtor'}[user?.role]||'Usuário'}</span></div><ChevronDown size={15} /></div>
-        <button className="logout" onClick={logout}><LogOut size={17} /> Sair da conta</button>
+        <div className="user-row">
+          <Avatar name={user?.name} id={user?.id} />
+          <div><strong>{user?.name || 'Usuário'}</strong><span>{roleNames[user?.role] || ''}</span></div>
+          <button type="button" className="icon-btn" onClick={exit} title="Sair" aria-label="Sair da conta"><LogOut /></button>
+        </div>
       </div>
     </aside>
-    {menu && <div className="sidebar-overlay" onClick={() => setMenu(false)} />}
-    <main className="main-area">
-      <div className="mobile-bar">
-        <button className="icon-btn" onClick={() => setMenu(true)} aria-label="Abrir menu"><Menu /></button>
-        <Brand compact />
-        <button className="mobile-avatar" onClick={() => setMenu(true)} aria-label="Ver perfil e menu">{user?.name?.slice(0, 2).toUpperCase() || 'RC'}</button>
+    {menu && <div className="sidebar-scrim" onClick={() => setMenu(false)} />}
+    <header className="topbar">
+      <button type="button" className="icon-btn menu-btn" onClick={() => setMenu(true)} aria-label="Abrir menu"><Menu /></button>
+      <div className="crumbs"><span className="hide-phone">Doces Mivi</span><ChevronRight size={14} className="hide-phone" aria-hidden="true" /><strong>{current?.[1] || 'Início'}</strong></div>
+      <div className="topbar-actions">
+        {location.pathname !== '/assistente' && <NavLink to="/assistente" className="btn ghost small" aria-label="Perguntar ao assistente"><Sparkles /><span>Perguntar ao assistente</span></NavLink>}
       </div>
-      <Outlet />
-    </main>
-    <nav className="mobile-tabbar" aria-label="Navegação principal">
-      {mobileNav.map(([to, label, Icon]) => <NavLink key={to} to={to} end={to === '/'} aria-label={label}><Icon size={21} /><span>{label.split(' ')[0]}</span></NavLink>)}
-      <button onClick={() => setMenu(true)} aria-label="Abrir todos os menus"><Menu size={22} /><span>Menu</span></button>
+    </header>
+    <main className="sheet"><Outlet /></main>
+    <nav className="tabbar" aria-label="Atalhos">
+      {mobile.map(([to, text, Icon]) => <NavLink key={to} to={to} end={to === '/'}><Icon aria-hidden="true" /><span>{text.split(' ')[0]}</span></NavLink>)}
+      <button type="button" onClick={() => setMenu(true)}><Menu aria-hidden="true" /><span>Menu</span></button>
     </nav>
+    <Toasts />
   </div>;
 }
 
@@ -81,14 +99,15 @@ export default function App() {
     <Route path="/login" element={getToken() ? <Navigate to="/" replace /> : <Login />} />
     <Route element={<PrivateRoute />}>
       <Route index element={<Dashboard />} />
+      <Route path="assistente" element={<Assistant />} />
       <Route path="produtos" element={<RoleRoute roles={['admin']}><Products /></RoleRoute>} />
       <Route path="insumos" element={<RoleRoute roles={['admin']}><Ingredients /></RoleRoute>} />
       <Route path="equipe" element={<RoleRoute roles={['admin']}><People /></RoleRoute>} />
       <Route path="acessos" element={<RoleRoute roles={['admin']}><Accesses /></RoleRoute>} />
       <Route path="parceiros" element={<RoleRoute roles={['admin']}><Establishments /></RoleRoute>} />
       <Route path="caixa" element={<RoleRoute roles={['admin']}><CashFlow /></RoleRoute>} />
-      <Route path="producao" element={<RoleRoute roles={['admin','producer']}><Production /></RoleRoute>} />
-      <Route path="vendas" element={<RoleRoute roles={['admin','seller']}><Sales /></RoleRoute>} />
+      <Route path="producao" element={<RoleRoute roles={['admin', 'producer']}><Production /></RoleRoute>} />
+      <Route path="vendas" element={<RoleRoute roles={['admin', 'seller']}><Sales /></RoleRoute>} />
       <Route path="verdade" element={<Transparency />} />
     </Route>
     <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,124 +1,140 @@
-# Rosa's Candy — Backoffice
+# Doces Mivi — gestão da fábrica
 
-Backoffice para gestão de confeitaria com dashboard, ficha técnica de produtos, custos, estoque, equipe, produção e vendas. O frontend é React, a API usa Django REST Framework e o banco de produção é PostgreSQL. SQLite continua disponível apenas para desenvolvimento rápido.
+Backoffice da fábrica de bolos: insumos com estoque e histórico, fichas técnicas com custo, produção que baixa
+insumos sozinha, vendas, parceiros, caixa, Página da Verdade e um **assistente** que diz o que comprar, o que
+produzir e quais preços revisar.
 
-## Rodar pela primeira vez
+| Parte | Pasta | Tecnologia |
+|---|---|---|
+| API | `backend/` | Django 5 + Django REST Framework |
+| Painel web | `frontend/` | React 19 + Vite |
+| App celular | `mobile/` | React Native + Expo (SDK 58) |
 
-Requisitos: Python 3.11+ e Node.js 22+.
+## Rodar no computador
+
+Requisitos: Python 3.11+, Node.js 22+.
 
 ```bash
 npm install
 npm run install:all
 npm run migrate
-npm run dev
+npm run dev            # Django em :3333 e painel em http://localhost:5173
 ```
 
-Abra `http://localhost:5173`.
+Instalação nova cria estes acessos de demonstração (troque as senhas em **Acessos**):
 
-- E-mail: `admin@rosascandy.com`
-- Senha: `admin123`
+| Cargo | E-mail | Senha |
+|---|---|---|
+| Administrador | `admin@docesmivi.com.br` | `admin123` |
+| Vendedor | `vendedor@docesmivi.com.br` | `vendedor123` |
+| Produtor | `produtor@docesmivi.com.br` | `produtor123` |
 
-Contas de demonstração criadas automaticamente:
+Bancos que já existiam mantêm os acessos que já tinham.
 
-| Cargo | E-mail | Senha | Acesso |
-|---|---|---|---|
-| Administrador | `admin@rosascandy.com` | `admin123` | Sistema completo |
-| Vendedor | `vendedor@rosascandy.com` | `vendedor123` | Dashboard pessoal, próprias vendas e transparência |
-| Produtor | `produtor@rosascandy.com` | `produtor123` | Dashboard pessoal, própria produção e transparência |
+## Subir na VPS (Docker)
 
-No modo SQLite, o banco fica em `backend/data/rosas-candy.db`. Em PostgreSQL, host, porta, banco, usuário, senha e SSL são configurados pelo ambiente. As migrations criam a estrutura Django e importam automaticamente os dados da versão Node na primeira execução. Em uma instalação nova, são criados acessos e dados mínimos de demonstração.
-
-## Rodar como build local
+Na VPS (Ubuntu com Docker e Nginx):
 
 ```bash
-npm run build
-npm start
+git clone <repositório> /opt/doces-mivi && cd /opt/doces-mivi
+cp docker/env.prod.example docker/.env.prod
+python3 -c "import secrets; print(secrets.token_urlsafe(50))"   # cole em DJANGO_SECRET_KEY
+nano docker/.env.prod                                            # domínio nas 4 variáveis de URL/host
+docker compose --env-file docker/.env.prod up -d --build
 ```
 
-Depois abra `http://localhost:3333`. A API serve o build React automaticamente.
+1. Copie `docker/nginx.doces-mivi.conf.example` para `/etc/nginx/sites-available/doces-mivi`, ajuste o
+   domínio, ative o site e rode `sudo certbot --nginx -d seu.dominio` para ter HTTPS.
+2. Teste: `curl -H 'X-Forwarded-Proto: https' http://127.0.0.1:8087/api/health`.
+3. Backup diário: `sh scripts/backup.sh` (agende no cron; o comando está no topo do arquivo).
 
-## Estrutura
+Detalhes que já ficam prontos:
 
-```text
-frontend/
-  src/components/   componentes compartilhados
-  src/lib/          acesso à API e formatação
-  src/pages/        páginas de cada módulo
-backend/
-  config/            configurações, URLs e WSGI/ASGI
-  core/models.py     modelos ORM do negócio
-  core/views.py      endpoints Django REST Framework
-  core/services.py   dashboards, previsões e Página da Verdade
-  core/serializers.py validação e contrato JSON
-  core/migrations/   schema e importação da base anterior
-  data/              arquivo SQLite local (ignorado pelo Git)
+- O backend não sobe em produção sem uma `DJANGO_SECRET_KEY` longa (40+ caracteres).
+- Migrations e `collectstatic` rodam sozinhos ao iniciar o container; o admin do Django
+  (`/django-admin/`) é servido pelo WhiteNoise.
+- Login limitado a 10 tentativas por minuto; perguntas ao assistente, 20 por hora (ajustável por
+  `THROTTLE_LOGIN` e `THROTTLE_ASSISTANT`).
+- **Banco:** SQLite por padrão (volume `rosas-candy_sqlite_data`, o mesmo da versão anterior — os dados
+  continuam). Para PostgreSQL no mesmo servidor, defina `DB_ENGINE=postgresql` e `POSTGRES_PASSWORD` e suba
+  com `--profile postgres`. Banco externo: veja `DATABASE_SETUP.txt`.
+- Logs com rotação (10 MB × 5 arquivos por serviço).
+- Depois que o HTTPS estiver estável, ligue `DJANGO_HSTS_SECONDS=31536000`.
+
+## App de celular
+
+O app usa a **mesma API**: no primeiro login, informe o endereço do painel (ex.: `painel.seudominio.com.br`).
+
+**Testar agora com o Expo Go** (Android/iPhone, app gratuito na loja):
+
+```bash
+cd mobile
+npm install
+npx expo start          # leia o QR code com o Expo Go
 ```
+
+Para testar contra o backend do seu computador, rode `npm run start` na raiz (Django em `0.0.0.0:3333`),
+adicione o IP do PC em `DJANGO_ALLOWED_HOSTS` e use `http://IP-DO-PC:3333` como servidor no app.
+
+**Gerar o APK** (build na nuvem do Expo, conta gratuita em expo.dev):
+
+```bash
+cd mobile
+npx eas-cli@latest login
+npx eas-cli@latest build --platform android --profile preview
+```
+
+Ao terminar, o EAS mostra um link para baixar o `.apk`. O perfil `production` gera `.aab` para a Play Store.
+O APK precisa de HTTPS no servidor (o Android bloqueia `http://` em apps instalados).
+
+O que cada cargo vê no app: administrador — início, vendas, produção, insumos (entrada de compra,
+contagem/perda, histórico), assistente, caixa e Página da Verdade; vendedor — as próprias vendas;
+produtor — os próprios lotes. Cadastros de produtos, receitas, equipe e acessos ficam no painel web.
+
+## Assistente
+
+`GET /api/assistant/insights` calcula, sem custo e sem internet:
+
+- insumos em falta, abaixo do mínimo, sem mínimo definido ou insuficientes para os lotes agendados;
+- **lista de compras** em embalagens inteiras para 14 dias + lotes agendados (copiar ou mandar no WhatsApp);
+- quanto dá para produzir de cada receita agora e qual insumo limita;
+- produtos com margem baixa ou prejuízo, com o preço que daria 25% de margem;
+- o que produzir pelo ritmo de venda, produtos parados e vendas a receber.
+
+O **chat** (`POST /api/assistant/ask`) é opcional: defina `ANTHROPIC_API_KEY` no `.env` e ele responde perguntas
+livres com os números da fábrica, usando o modelo `claude-opus-5-5` (troque por `ASSISTANT_MODEL`).
+Sem a chave, o resto funciona igual.
 
 ## Regras de cálculo
 
-- Custo do insumo por unidade = preço pago / quantidade comprada.
-- Custo da receita = soma da quantidade usada × custo base do insumo.
+- Custo do insumo por unidade = preço pago / quantidade comprada (o cadastro converte kg→g, l→ml, dúzia→un).
+- Entrada de compra soma ao estoque, atualiza o custo (opcional) e lança a saída no caixa (opcional).
+- Concluir um lote baixa os insumos da receita e grava no histórico; excluir ou reabrir devolve.
 - Custo unitário = receita + embalagem + outros custos.
-- Lucro líquido estimado = preço de venda − custo unitário − taxas/comissões.
-- Estoque pronto estimado = produção concluída − vendas não canceladas.
-- Previsão de venda = velocidade média dos últimos 30 dias aplicada ao estoque atual.
-- Comissão do vendedor/produtor = faturamento das vendas vinculadas × percentual definido no produto.
-- Resultado do proprietário = faturamento − custo direto − taxas − vendedor − produtor − parceiro − reserva de caixa.
-- ROI da empresa = resultado do proprietário / custo direto dos produtos.
-- Saldo do caixa = vendas pagas + entradas manuais − saídas manuais. Vendas pendentes e canceladas não entram no saldo.
-
-## Cargos e segurança
-
-As permissões são aplicadas tanto na navegação quanto na API. Um vendedor não consegue consultar vendas de outro vendedor, e um produtor não consegue consultar lotes de outro produtor mesmo que tente acessar o endpoint diretamente.
-
-O administrador cria contas em **Acessos** e as vincula a uma pessoa cadastrada na **Equipe**. A **Página da Verdade** fica disponível para todos os usuários autenticados.
-
-O controle **Entradas e saídas** é exclusivo de administradores e registra compras, pagamentos e outros movimentos manuais do caixa. As análises aceitam períodos prontos ou datas inicial e final.
-
-Os estabelecimentos parceiros podem revender produtos específicos com percentuais diferentes. A comissão vigente é gravada na venda para que alterações futuras no contrato não mudem o histórico.
-
-## Configuração
-
-Copie `backend/.env.example` para `backend/.env`, preencha as variáveis PostgreSQL e altere `DJANGO_SECRET_KEY` antes de publicar. Defina `VITE_API_URL` no frontend caso a API fique em outro endereço. A criação manual do banco e do usuário está documentada em `DATABASE_SETUP.txt`.
-
-O painel administrativo nativo do Django está disponível em `http://localhost:3333/django-admin/` para o administrador.
-
-## Backend Django
-
-O frontend acessa apenas rotas sob `/api`, concentradas em `frontend/src/lib/api.js`. Autenticação, permissões por cargo e escopo de registros são aplicados no Django, independentemente dos menus exibidos no React.
-
-Comandos úteis:
-
-```bash
-python backend/manage.py makemigrations
-python backend/manage.py migrate
-python backend/manage.py check
-python backend/manage.py createsuperuser
-```
+- Lucro do proprietário = preço − custo − taxas − comissões − reserva de caixa − parceiro.
+- Cobertura do insumo = estoque ÷ consumo médio diário dos lotes concluídos nos últimos 30 dias.
+- Saldo do caixa = vendas pagas + entradas manuais − saídas.
 
 ## Testes
 
 ```bash
-npm test
+npm test     # 31 testes no backend + 12 no painel
 ```
 
-A suíte executa testes unitários e de segurança nos dois projetos. O backend valida autenticação Bearer, senhas, permissões por cargo, isolamento de registros, comissões controladas pelo servidor, quantidades e cálculos financeiros. O frontend valida sessão, cliente HTTP, login, rotas por cargo e o formulário de ingredientes.
+## Estrutura
 
-## Docker Compose
-
-O Compose usa SQLite em um volume Docker persistente. Para desenvolvimento:
-
-```powershell
-Copy-Item docker/env.dev.example docker/.env.dev
-docker compose --env-file docker/.env.dev up -d --build
+```text
+backend/core/
+  models.py       negócio (StockMovement = histórico de estoque)
+  inventory.py    consumo médio, cobertura, sugestão de compra
+  assistant.py    regras do assistente e chat opcional com IA
+  views.py        endpoints REST
+frontend/src/
+  pages/          uma página por módulo (Insumos, Assistente, …)
+  components/UI.jsx
+mobile/
+  App.js          navegação por cargo
+  src/screens/    telas do app
+docker/           exemplos de .env e Nginx
+scripts/backup.sh backup do banco no Docker
 ```
-
-Para produção, copie `docker/env.prod.example`, defina o domínio e a chave
-secreta e execute o mesmo comando com `.env.prod`. O único endereço publicado
-no host é `http://127.0.0.1:8080`; configure o Nginx externo com
-`proxy_pass http://127.0.0.1:8080`. O frontend encaminha `/api` para o Django
-pela rede Docker interna, portanto o backend não fica exposto.
-
-Veja [docker/README.md](docker/README.md) e
-[docker/nginx.rosas-candy.conf.example](docker/nginx.rosas-candy.conf.example)
-para o passo a passo e o virtual host.

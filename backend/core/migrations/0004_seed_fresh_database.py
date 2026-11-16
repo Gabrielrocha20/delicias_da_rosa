@@ -11,12 +11,12 @@ def seed_fresh_database(apps, schema_editor):
     Product = apps.get_model('core', 'Product')
     RecipeItem = apps.get_model('core', 'RecipeItem')
 
-    seller = Person.objects.create(name='Vendedor Demo', type='seller', email='vendedor@rosascandy.com', commission=15)
-    producer = Person.objects.create(name='Produtor Demo', type='producer', email='produtor@rosascandy.com', commission=15)
+    seller = Person.objects.create(name='Vendedor Demo', type='seller', email='vendedor@docesmivi.com.br', commission=15)
+    producer = Person.objects.create(name='Produtor Demo', type='producer', email='produtor@docesmivi.com.br', commission=15)
     accounts = [
-        ('Rosa Admin', 'admin@rosascandy.com', 'admin123', 'admin', None),
-        (seller.name, 'vendedor@rosascandy.com', 'vendedor123', 'seller', seller),
-        (producer.name, 'produtor@rosascandy.com', 'produtor123', 'producer', producer),
+        ('Admin Mivi', 'admin@docesmivi.com.br', 'admin123', 'admin', None),
+        (seller.name, 'vendedor@docesmivi.com.br', 'vendedor123', 'seller', seller),
+        (producer.name, 'produtor@docesmivi.com.br', 'produtor123', 'producer', producer),
     ]
     for name, email, password, role, person in accounts:
         is_admin = role == 'admin'

@@ -16,6 +16,9 @@ vi.mock('./pages/Sales', () => ({ default: () => <div>pagina-vendas</div> }));
 vi.mock('./pages/Accesses', () => ({ default: () => <div>pagina-acessos</div> }));
 vi.mock('./pages/Establishments', () => ({ default: () => <div>pagina-parceiros</div> }));
 vi.mock('./pages/Transparency', () => ({ default: () => <div>pagina-verdade</div> }));
+vi.mock('./pages/CashFlow', () => ({ default: () => <div>pagina-caixa</div> }));
+vi.mock('./pages/Assistant', () => ({ default: () => <div>pagina-assistente</div> }));
+vi.mock('./lib/api', async original => ({ ...(await original()), logout: vi.fn() }));
 
 
 function renderAs(role, path) {

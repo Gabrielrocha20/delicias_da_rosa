@@ -42,6 +42,10 @@ class Ingredient(models.Model):
     unit = models.CharField(max_length=20, default='g')
     stock = models.FloatField(default=0)
     min_stock = models.FloatField(default=0)
+    supplier = models.CharField(max_length=160, blank=True)
+    brand = models.CharField(max_length=120, blank=True)
+    notes = models.TextField(blank=True)
+    last_purchase_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
@@ -67,7 +71,7 @@ class Product(models.Model):
 
     @property
     def recipe_cost(self):
-        return sum(item.quantity * item.ingredient.unit_cost for item in self.recipe_items.select_related('ingredient'))
+        return sum(item.quantity * item.ingredient.unit_cost for item in self.recipe_items.all())
 
     @property
     def unit_cost(self):
@@ -155,6 +159,35 @@ class CashMovement(models.Model):
     category = models.CharField(max_length=100)
     description = models.CharField(max_length=255, blank=True)
     amount = models.FloatField()
+    occurred_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-occurred_at', '-id']
+
+
+class StockMovement(models.Model):
+    """Histórico de tudo que entra e sai do estoque de um insumo (sempre na unidade de uso)."""
+
+    PURCHASE = 'purchase'
+    ADJUSTMENT = 'adjustment'
+    LOSS = 'loss'
+    PRODUCTION = 'production'
+    TYPE_CHOICES = [
+        (PURCHASE, 'Compra'), (ADJUSTMENT, 'Ajuste de inventário'),
+        (LOSS, 'Perda'), (PRODUCTION, 'Consumo na produção'),
+    ]
+
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='movements')
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    quantity = models.FloatField(help_text='Positivo entra, negativo sai.')
+    stock_after = models.FloatField(default=0)
+    total_cost = models.FloatField(null=True, blank=True)
+    supplier = models.CharField(max_length=160, blank=True)
+    note = models.CharField(max_length=255, blank=True)
+    batch = models.ForeignKey(ProductionBatch, null=True, blank=True, on_delete=models.CASCADE, related_name='stock_movements')
+    cash_movement = models.ForeignKey(CashMovement, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='stock_movements')
     occurred_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 

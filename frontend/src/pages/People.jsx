@@ -1,25 +1,70 @@
 import { useEffect, useMemo, useState } from 'react';
-import { UserPlus, UsersRound, ChefHat, BadgeDollarSign } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { api } from '../lib/api';
 import { percent } from '../lib/format';
-import { Actions, Badge, Confirm, Empty, ErrorNotice, Field, Loading, Modal, PageHeader, SearchBox } from '../components/UI';
+import { Actions, Avatar, Confirm, CountCards, Empty, ErrorNotice, Field, Loading, Modal, PageHeader, Pill, SearchBox, toast } from '../components/UI';
 
-const blank={name:'',type:'seller',phone:'',email:'',commission:8,active:true};
+const blank = { name: '', type: 'seller', phone: '', email: '', commission: 8, active: true };
 
-export default function People(){
-  const [items,setItems]=useState([]),[search,setSearch]=useState(''),[filter,setFilter]=useState('all'),[editing,setEditing]=useState(null),[remove,setRemove]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
-  const load=()=>api('/people').then(setItems).finally(()=>setLoading(false));useEffect(()=>{load()},[]);
-  const filtered=useMemo(()=>items.filter(i=>(filter==='all'||i.type===filter)&&`${i.name} ${i.email}`.toLowerCase().includes(search.toLowerCase())),[items,filter,search]);
-  const form=editing?.data||blank,change=(key,value)=>setEditing(e=>({...e,data:{...e.data,[key]:value}}));
-  async function save(e){e.preventDefault();setError('');try{await api(editing.id?`/people/${editing.id}`:'/people',{method:editing.id?'PUT':'POST',body:editing.data});setEditing(null);await load()}catch(err){setError(err.message)}}
-  async function deactivate(){await api(`/people/${remove.id}`,{method:'DELETE'});setRemove(null);load()}
+export default function People() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [editing, setEditing] = useState(null);
+  const [removing, setRemoving] = useState(null);
+  const load = () => api('/people').then(setItems).catch(err => setError(err.message)).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+  const filtered = useMemo(() => items.filter(row => (filter === 'all' || row.type === filter) && `${row.name} ${row.email} ${row.phone}`.toLowerCase().includes(search.toLowerCase())), [items, filter, search]);
+  const form = editing?.data || blank;
+  const set = (key, value) => setEditing(current => ({ ...current, data: { ...current.data, [key]: value } }));
+
+  async function save(event) {
+    event.preventDefault(); setFormError('');
+    try { await api(editing.id ? `/people/${editing.id}` : '/people', { method: editing.id ? 'PUT' : 'POST', body: editing.data }); toast('Pessoa salva'); setEditing(null); load(); }
+    catch (err) { setFormError(err.message); }
+  }
+  async function deactivate() { await api(`/people/${removing.id}`, { method: 'DELETE' }); toast('Pessoa desativada'); setRemoving(null); load(); }
+
   return <div className="page">
-    <PageHeader eyebrow="Pessoas" title="Equipe" description="Organize vendedores, produtores e suas comissões padrão." action={<button className="btn primary" onClick={()=>setEditing({data:{...blank}})}><UserPlus size={18}/> Nova pessoa</button>}/><ErrorNotice message={error}/>
-    <section className="summary-strip"><div><UsersRound size={20}/><span>Pessoas ativas<strong>{items.filter(i=>i.active).length}</strong></span></div><div><BadgeDollarSign size={20}/><span>Vendedores<strong>{items.filter(i=>i.type==='seller'&&i.active).length}</strong></span></div><div><ChefHat size={20}/><span>Produtores<strong>{items.filter(i=>i.type==='producer'&&i.active).length}</strong></span></div></section>
-    <section className="panel table-panel"><div className="table-toolbar"><SearchBox value={search} onChange={setSearch} placeholder="Buscar por nome ou e-mail..."/><div className="segmented"><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Todos</button><button className={filter==='seller'?'active':''} onClick={()=>setFilter('seller')}>Vendedores</button><button className={filter==='producer'?'active':''} onClick={()=>setFilter('producer')}>Produtores</button></div></div>
-      {loading?<Loading/>:filtered.length?<div className="table-scroll"><table><thead><tr><th>Nome</th><th>Função</th><th>Contato</th><th>Comissão padrão</th><th>Status</th><th></th></tr></thead><tbody>{filtered.map(item=><tr key={item.id}><td><div className="cell-title"><div className={`item-symbol ${item.type}`}>{item.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div><span><strong>{item.name}</strong><small>{item.email||'Sem e-mail'}</small></span></div></td><td><Badge tone={item.type==='seller'?'neutral':'caramel'}>{item.type==='seller'?'Vendedor':'Produtor'}</Badge></td><td>{item.phone||'—'}</td><td>{percent(item.commission)}</td><td><Badge tone={item.active?'positive':'muted'}>{item.active?'Ativo':'Inativo'}</Badge></td><td><Actions onEdit={()=>setEditing({id:item.id,data:{...item,active:!!item.active}})} onDelete={item.active?()=>setRemove(item):null}/></td></tr>)}</tbody></table></div>:<Empty title="Nenhuma pessoa encontrada"/>}
+    <PageHeader title="Equipe" description="Vendedores e produtores. Para a pessoa entrar no sistema, crie um login em Acessos."
+      actions={<button type="button" className="btn primary" onClick={() => { setFormError(''); setEditing({ data: { ...blank } }); }}><UserPlus />Nova pessoa</button>} />
+    <ErrorNotice message={error} />
+    <section className="panel">
+      <div className="panel-body" style={{ paddingBottom: 4 }}>
+        <CountCards value={filter} onChange={setFilter} items={[
+          { key: 'all', label: 'Todos', count: items.length },
+          { key: 'seller', label: 'Vendedores', count: items.filter(row => row.type === 'seller' && row.active).length },
+          { key: 'producer', label: 'Produtores', count: items.filter(row => row.type === 'producer' && row.active).length },
+        ]} />
+        <div className="toolbar" style={{ marginTop: 16, marginBottom: 0 }}><SearchBox value={search} onChange={setSearch} placeholder="Buscar nome, e-mail ou telefone" /></div>
+      </div>
+      {loading ? <Loading /> : filtered.length ? <div className="table-wrap"><table className="responsive">
+        <thead><tr><th>Nome</th><th>Função</th><th>Telefone</th><th className="num">Comissão padrão</th><th>Situação</th><th /></tr></thead>
+        <tbody>{filtered.map(item => <tr key={item.id} className={item.active ? '' : 'dim'}>
+          <td className="primary"><div className="cell-title"><Avatar name={item.name} id={item.id} /><span><strong>{item.name}</strong><small>{item.email || 'Sem e-mail'}</small></span></div></td>
+          <td className="meta plain">{item.type === 'seller' ? 'Vendedor' : 'Produtor'}</td>
+          <td className="meta" data-label="Telefone">{item.phone || <span className="dash">—</span>}</td>
+          <td className="num lead">{percent(item.commission)}</td>
+          <td className="status"><Pill tone={item.active ? 'positive' : 'neutral'}>{item.active ? 'Ativo' : 'Inativo'}</Pill></td>
+          <td className="actions"><Actions onEdit={() => { setFormError(''); setEditing({ id: item.id, data: { ...item } }); }} onDelete={item.active ? () => setRemoving(item) : null} deleteLabel="Desativar" /></td>
+        </tr>)}</tbody>
+      </table></div> : <Empty title="Ninguém encontrado" />}
     </section>
-    <Modal open={!!editing} title={editing?.id?'Editar pessoa':'Adicionar à equipe'} subtitle="Os percentuais servem como referência nos lançamentos." onClose={()=>setEditing(null)}><form onSubmit={save}><div className="form-grid"><Field label="Nome completo" span><input value={form.name} onChange={e=>change('name',e.target.value)} required/></Field><Field label="Função"><select value={form.type} onChange={e=>change('type',e.target.value)}><option value="seller">Vendedor</option><option value="producer">Produtor</option></select></Field><Field label="Comissão padrão (%)"><input type="number" min="0" step="0.1" value={form.commission} onChange={e=>change('commission',e.target.value)}/></Field><Field label="Telefone"><input value={form.phone} onChange={e=>change('phone',e.target.value)} placeholder="(00) 00000-0000"/></Field><Field label="E-mail"><input type="email" value={form.email} onChange={e=>change('email',e.target.value)}/></Field>{editing?.id&&<Field label="Situação"><select value={form.active?'1':'0'} onChange={e=>change('active',e.target.value==='1')}><option value="1">Ativo</option><option value="0">Inativo</option></select></Field>}</div><div className="modal-actions"><button type="button" className="btn ghost" onClick={()=>setEditing(null)}>Cancelar</button><button className="btn primary">Salvar pessoa</button></div></form></Modal>
-    <Confirm open={!!remove} title="Desativar pessoa?" text={`${remove?.name} deixará de aparecer nos novos lançamentos, mas o histórico será preservado.`} onCancel={()=>setRemove(null)} onConfirm={deactivate}/>
-  </div>
+    <Modal open={!!editing} onClose={() => setEditing(null)} onSubmit={save} title={editing?.id ? 'Editar pessoa' : 'Adicionar à equipe'} subtitle="A comissão de cada venda vem da ficha do produto; este percentual é a referência."
+      footer={<><button type="button" className="btn" onClick={() => setEditing(null)}>Cancelar</button><button className="btn primary">Salvar</button></>}>
+      <ErrorNotice message={formError} />
+      <div className="form-grid">
+        <Field label="Nome completo" span><input value={form.name} onChange={e => set('name', e.target.value)} required autoFocus /></Field>
+        <Field label="Função"><select value={form.type} onChange={e => set('type', e.target.value)}><option value="seller">Vendedor</option><option value="producer">Produtor</option></select></Field>
+        <Field label="Comissão padrão (%)"><input type="number" inputMode="decimal" min="0" step="0.1" value={form.commission} onChange={e => set('commission', e.target.value)} /></Field>
+        <Field label="Telefone"><input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="(11) 90000-0000" /></Field>
+        <Field label="E-mail"><input type="email" value={form.email} onChange={e => set('email', e.target.value)} /></Field>
+        {editing?.id && <Field label="Situação"><select value={form.active ? '1' : '0'} onChange={e => set('active', e.target.value === '1')}><option value="1">Ativo</option><option value="0">Inativo</option></select></Field>}
+      </div>
+    </Modal>
+    <Confirm open={!!removing} title={`Desativar ${removing?.name}?`} confirmLabel="Desativar" text="A pessoa some dos novos lançamentos; o histórico de vendas e produção continua." onCancel={() => setRemoving(null)} onConfirm={deactivate} />
+  </div>;
 }

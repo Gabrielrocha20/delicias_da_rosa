@@ -10,3 +10,11 @@ venv/
 docker/.env.dev
 docker/.env.prod
 frontend/coverage/
+.taste-skill/
+backups/
+mobile/.expo/
+mobile/dist/
+mobile/android/
+mobile/ios/
+*.apk
+*.aab

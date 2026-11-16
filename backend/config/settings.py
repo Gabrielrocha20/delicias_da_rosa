@@ -28,8 +28,14 @@ def env_list(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', os.getenv('APP_SECRET', 'rosas-candy-django-dev-change-me'))
 DEBUG = env_bool('DJANGO_DEBUG', True)
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', os.getenv('APP_SECRET', '')).strip()
+if not SECRET_KEY:
+    if not DEBUG:
+        raise ImproperlyConfigured('Defina DJANGO_SECRET_KEY antes de rodar com DJANGO_DEBUG=False.')
+    SECRET_KEY = 'doces-mivi-django-dev-change-me'
+elif not DEBUG and (len(SECRET_KEY) < 40 or 'troque' in SECRET_KEY or 'GERE_UMA' in SECRET_KEY):
+    raise ImproperlyConfigured('DJANGO_SECRET_KEY de produção precisa ser longa e aleatória (40+ caracteres).')
 ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1')
 
 INSTALLED_APPS = [
@@ -48,6 +54,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -118,6 +125,11 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage' if not DEBUG
+                    else 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173').rstrip('/')
@@ -126,6 +138,10 @@ CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS', FRONTEND_URL)
 CORS_ALLOW_CREDENTIALS = False
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = env_bool('DJANGO_USE_X_FORWARDED_HOST', False)
+SECURE_HSTS_SECONDS = int(os.getenv('DJANGO_HSTS_SECONDS', '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('DJANGO_HSTS_INCLUDE_SUBDOMAINS', False)
+SECURE_REDIRECT_EXEMPT = [r'^api/health$']
 SECURE_SSL_REDIRECT = env_bool('DJANGO_SECURE_SSL_REDIRECT', False)
 SESSION_COOKIE_SECURE = env_bool('DJANGO_SESSION_COOKIE_SECURE', not DEBUG)
 CSRF_COOKIE_SECURE = env_bool('DJANGO_CSRF_COOKIE_SECURE', not DEBUG)
@@ -139,4 +155,17 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'COERCE_DECIMAL_TO_STRING': False,
     'EXCEPTION_HANDLER': 'core.exceptions.api_exception_handler',
+    'DEFAULT_THROTTLE_RATES': {
+        'login': os.getenv('THROTTLE_LOGIN', '10/min'),
+        'assistant': os.getenv('THROTTLE_ASSISTANT', '20/hour'),
+    },
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {'plain': {'format': '%(asctime)s %(levelname)s %(name)s %(message)s'}},
+    'handlers': {'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'}},
+    'root': {'handlers': ['console'], 'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO')},
+    'loggers': {'django.db.backends': {'level': 'WARNING'}},
 }
